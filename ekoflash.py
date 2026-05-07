@@ -192,7 +192,7 @@ class EkoFlashV3:
               background=[("selected", BG_CARD)],
               foreground=[("selected", NE_VIOLET)])
         for name, color in [("Lime", NE_LIME), ("Violet", NE_VIOLET)]:
-            s.configure(f"{name}.TProgressbar", thickness=10,
+            s.configure(f"{name}.Horizontal.TProgressbar", thickness=10,
                         background=color, troughcolor=BG_ENTRY, borderwidth=0)
 
     # ────────────────────────────── TOP BAR
@@ -428,7 +428,7 @@ class EkoFlashV3:
                                     fg=NE_VIOLET, font=FONT_SMALL)
         self.percent_lbl.pack(side="right", padx=4)
         self.progress_bar = ttk.Progressbar(prog_hdr, variable=self.progress_var,
-                                            maximum=100, style="Violet.TProgressbar",
+                                            maximum=100, style="Violet.Horizontal.TProgressbar",
                                             length=120)
         self.progress_bar.pack(side="right")
         tk.Label(prog_hdr, text="heimdall.exe", bg=BG_HDR, fg=FG_DIM,
