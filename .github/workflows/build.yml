@@ -62,5 +62,5 @@ jobs:
       - name: Upload Result
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_OUTPUT
-          path: dist/EKOFLASH_PRO_v2.1.exe
+          name: EKOFLASH_TURBO
+          path: dist/EKOFLASH_PRO_v3.exe
