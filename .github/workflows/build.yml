@@ -18,9 +18,9 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install fmt library via vcpkg
+      - name: Install fmt + spdlog via vcpkg
         run: |
-          vcpkg install fmt:x64-windows
+          vcpkg install fmt:x64-windows spdlog:x64-windows
           vcpkg integrate install
 
       - name: Build ekoflash.exe (C++ Engine via MSVC)
@@ -63,18 +63,39 @@ jobs:
             "/I src\third_party\lz4",
             "/I src\third_party\md5",
             "/I src\third_party\xxhash",
-            "/I $VCPKG_INC"
+            "/I `"$VCPKG_INC`""
           )
 
-          $srcList  = $sources  -join " "
-          $inclList = $includes -join " "
+          $defines = @(
+            "/D BROKKR_PLATFORM_WINDOWS",
+            "/D WIN32_LEAN_AND_MEAN",
+            "/D NOMINMAX",
+            "/D _WIN32_WINNT=0x0A00",
+            "/D SPDLOG_FMT_EXTERNAL"
+          )
 
-          $cmd = "cl.exe /std:c++latest /O2 /EHsc $inclList $srcList" +
+          $flags = @(
+            "/std:c++latest",
+            "/O2",
+            "/EHsc",
+            "/utf-8",
+            "/Zc:__cplusplus"
+          )
+
+          $srcList    = $sources  -join " "
+          $inclList   = $includes -join " "
+          $defineList = $defines  -join " "
+          $flagList   = $flags    -join " "
+
+          $linkLibs = "Ws2_32.lib SetupAPI.lib"
+          $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
+
+          $cmd = "cl.exe $flagList $inclList $defineList $srcList" +
                  " /Fe:ekoflash.exe" +
-                 " /link Ws2_32.lib SetupAPI.lib" +
-                 " /LIBPATH:$VCPKG_LIB fmt.lib"
+                 " /link $libPath $linkLibs"
 
-          Write-Host "CMD: $cmd"
+          Write-Host "=== CMD ===" 
+          Write-Host $cmd
           Invoke-Expression $cmd
 
           if (-not (Test-Path "ekoflash.exe")) {
