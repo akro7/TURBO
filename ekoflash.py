@@ -123,7 +123,7 @@ class OdinFileRow(tk.Frame):
     COLORS = {"BL": NE_AMBER, "AP": NE_VIOLET, "CP": NE_LIME,
               "CSC": NE_CYAN, "USERDATA": NE_RED}
 
-    def __init__(self, parent, idx, slot, check_var, path_var, browse_cmd):
+    def __init__(self, parent, idx, slot, check_var, path_var, browse_cmd, flash_cmd=None):
         bg = BG_ROW_A if idx % 2 == 0 else BG_ROW_B
         super().__init__(parent, bg=bg, height=38)
         self.pack(fill="x")
@@ -147,7 +147,9 @@ class OdinFileRow(tk.Frame):
                        highlightcolor=col)
         ent.pack(side="left", fill="x", expand=True, ipady=6, padx=4)
 
-        NeonBtn(self, "SELECT", browse_cmd, col, 7).pack(side="left", padx=(4, 8))
+        NeonBtn(self, "SELECT", browse_cmd, col, 7).pack(side="left", padx=(4, 4))
+        if flash_cmd:
+            NeonBtn(self, "FLASH", flash_cmd, col, 5).pack(side="left", padx=(0, 8))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -161,7 +163,8 @@ class EkoFlashV3:
 
         self.fastboot_exe = self._res("fastboot.exe")
         self.adb_exe      = self._res("adb.exe")
-        self.heimdall_exe = self._res("heimdall.exe")
+        # Compiled C++ Odin backend from src/protocol/odin/
+        self.odin_exe     = self._res("ekoflash.exe")
 
         self.part_vars       = {}
         self.odin_vars       = {}
@@ -214,8 +217,12 @@ class EkoFlashV3:
         tk.Label(logo_row, text="PRO", bg=BG_SIDEBAR, fg=NE_VIOLET,
                  font=("Courier New", 18, "bold")).pack(side="left")
 
-        tk.Label(left, text="v3.0  ·  DEVELOPER: AHMED YOUNIS",
-                 bg=BG_SIDEBAR, fg=FG_MID, font=("Courier New", 7)).pack(anchor="w")
+        dev_row = tk.Frame(left, bg=BG_SIDEBAR)
+        dev_row.pack(anchor="w")
+        tk.Label(dev_row, text="v3.0  ·  DEV: ", bg=BG_SIDEBAR, fg=FG_MID,
+                 font=("Courier New", 7)).pack(side="left")
+        tk.Label(dev_row, text="AHMED YOUNIS", bg=BG_SIDEBAR, fg=NE_AMBER,
+                 font=("Courier New", 9, "bold")).pack(side="left")
 
         # right: status cards
         right = tk.Frame(bar, bg=BG_SIDEBAR)
@@ -418,7 +425,7 @@ class EkoFlashV3:
 
         tk.Label(phdr, text=" ◈ ", bg=NE_VIOLET, fg="#000000",
                  font=("Courier New", 9, "bold")).pack(side="left")
-        tk.Label(phdr, text="  ODIN / HEIMDALL FLASH", bg=BG_HDR,
+        tk.Label(phdr, text="  ODIN ENGINE CORE FLASH", bg=BG_HDR,
                  fg=NE_VIOLET, font=FONT_MED).pack(side="left")
 
         # progress in header
@@ -431,7 +438,7 @@ class EkoFlashV3:
                                             maximum=100, style="Violet.Horizontal.TProgressbar",
                                             length=120)
         self.progress_bar.pack(side="right")
-        tk.Label(prog_hdr, text="heimdall.exe", bg=BG_HDR, fg=FG_DIM,
+        tk.Label(prog_hdr, text="ekoflash.exe", bg=BG_HDR, fg=FG_DIM,
                  font=FONT_SMALL).pack(side="right", padx=(0, 8))
 
         body = tk.Frame(panel, bg=BG_PANEL)
@@ -466,7 +473,8 @@ class EkoFlashV3:
             pv = tk.StringVar()
             self.odin_vars[slot] = {"check": cv, "path": pv}
             OdinFileRow(slots_tbl, i, slot, cv, pv,
-                        lambda s=slot: self._odin_browse(s))
+                        lambda s=slot: self._odin_browse(s),
+                        lambda s=slot: self._flash_odin_single(s))
 
         hline(left, BORDER_DIM, pady=2)
 
@@ -489,13 +497,13 @@ class EkoFlashV3:
         ctrl = tk.Frame(left, bg=BG_PANEL)
         ctrl.pack(fill="x", pady=3)
 
-        NeonBtn(ctrl, "▶  START ODIN FLASH", self.start_odin_flash,
+        NeonBtn(ctrl, "▶  START ENGINE FLASH", self.start_odin_flash,
                 NE_VIOLET, 20).pack(side="left", padx=(0, 6))
         NeonBtn(ctrl, "⊗ RESET", self.odin_reset,
                 NE_RED, 8).pack(side="left")
 
         # ── right: log + result + options ──
-        tk.Label(right, text="ODIN LOG", bg=BG_PANEL, fg=NE_VIOLET,
+        tk.Label(right, text="ENGINE LOG", bg=BG_PANEL, fg=NE_VIOLET,
                  font=FONT_SMALL).pack(anchor="w")
 
         log_card = tk.Frame(right, bg=BG_ENTRY,
@@ -579,9 +587,10 @@ class EkoFlashV3:
                     self._stat_frames["SERIAL"].config(text=serial[:12], fg=FG_MID)
                 else:
                     try:
-                        r2 = subprocess.run([self.heimdall_exe, "detect"],
+                        # الاعتماد علي محرك ekoflash المستمد من src
+                        r2 = subprocess.run([self.odin_exe, "detect"],
                                             capture_output=True, text=True, creationflags=cf)
-                        if "Device detected" in r2.stdout:
+                        if "Device detected" in r2.stdout or "download" in r2.stdout.lower():
                             self._dev_state = "DOWNLOAD"
                             self._dot.config(text="◉  DOWNLOAD", fg=NE_VIOLET)
                             self._stat_frames["STATUS"].config(text="ONLINE", fg=NE_VIOLET)
@@ -663,39 +672,69 @@ class EkoFlashV3:
             if v.get():
                 self.flash_fastboot(p)
 
+    def _flash_odin_single(self, slot):
+        """Flash a single ODIN slot using ekoflash engine."""
+        path = self.odin_vars[slot]["path"].get()
+        if not path:
+            self._write(f"ERROR: No file selected for [{slot}]", "OD")
+            self.pass_label.config(text="NO FILE", bg="#201000", fg=NE_AMBER)
+            return
+
+        map_names = {"BL": "bootloader", "AP": "system",
+                     "CP": "radio",      "CSC": "csc",
+                     "USERDATA": "userdata"}
+        part_flag = map_names.get(slot, slot.lower())
+
+        # استخدام محرك ekoflash.exe المستخرج من src/protocol/odin/
+        cmd = [self.odin_exe, "flash", f"--{part_flag}", path]
+        if self.pit_var.get():
+            cmd += ["--pit", self.pit_var.get()]
+
+        self.pass_label.config(text=f"→ {slot}", bg="#0D0020", fg=NE_VIOLET)
+        self.progress_var.set(0)
+        self.percent_lbl.config(text="0%")
+        self._write(f"<CORE> Flash {slot}: {os.path.basename(path)}", "OD")
+
+        def run():
+            self._exec(cmd, f"Flash {slot}", "OD")
+
+        threading.Thread(target=run, daemon=True).start()
+
     def start_odin_flash(self):
+        """Flash ALL checked slots using ekoflash engine logic."""
         selected = [(p, d["path"].get())
                     for p, d in self.odin_vars.items()
                     if d["check"].get() and d["path"].get()]
         if not selected:
-            self._write("ERROR: No files selected!", "OD")
+            self._write("ERROR: No files checked!", "OD")
             self.pass_label.config(text="NO FILES", bg="#201000", fg=NE_AMBER)
             return
 
-        self.pass_label.config(text="FLASHING…", bg="#100020", fg=NE_VIOLET)
+        self.pass_label.config(text="FLASHING…", bg="#0D0020", fg=NE_VIOLET)
         self.progress_var.set(0)
-        self._write("<OSM> Starting analysis…", "OD")
+        self._write(f"<ENGINE> Multi-flash: {len(selected)} slot(s) queued", "OD")
 
         def run():
-            map_names = {"BL": "BOOTLOADER", "AP": "SYSTEM",
-                         "CP": "RADIO", "CSC": "HIDDEN"}
-            cmd = [self.heimdall_exe, "flash"]
+            map_names = {"BL": "bootloader", "AP": "system",
+                         "CP": "radio",      "CSC": "csc",
+                         "USERDATA": "userdata"}
+
+            cmd = [self.odin_exe, "flash"]
             if self.pit_var.get():
                 cmd += ["--pit", self.pit_var.get()]
 
             total = len(selected)
             for i, (slot, path) in enumerate(selected):
-                self._write(f" › Queuing {slot}: {os.path.basename(path)}", "OD")
-                cmd += [f"--{map_names.get(slot, slot)}", path]
-                pct = ((i + 1) / total) * 70
+                flag = map_names.get(slot, slot.lower())
+                cmd += [f"--{flag}", path]
+                self._write(f" ├ [{i+1}/{total}] {slot}: {os.path.basename(path)}", "OD")
+                pct = ((i + 1) / total) * 60
                 self.progress_var.set(pct)
                 self.percent_lbl.config(text=f"{int(pct)}%")
-                time.sleep(0.3)
+                time.sleep(0.2)
 
-            self._exec(cmd, "Heimdall Flash", "OD")
-            if self.odin_opts_vars.get("Auto Reboot") and \
-               self.odin_opts_vars["Auto Reboot"].get():
-                self.reboot_device()
+            self._write(" └ Sending to device via engine…", "OD")
+            self._exec(cmd, "Engine Multi-Flash", "OD")
 
         threading.Thread(target=run, daemon=True).start()
 
