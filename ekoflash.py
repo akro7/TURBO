@@ -7,8 +7,8 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 
 # ═══════════════════════════════════════════════════════════════
-#   NOVA THEME — DUAL-PANEL MATRIX DARK (AKRO EDITION)
-#   Deep obsidian core · Neon lime signals · Violet partition marks
+#   NOVA THEME - DUAL-PANEL MATRIX DARK (AKRO EDITION)
+#   Deep obsidian core * Neon lime signals * Violet partition marks
 #   Project: github.com/akro7/TURBO
 # ═══════════════════════════════════════════════════════════════
 BG_ROOT      = "#05070D"
@@ -20,12 +20,12 @@ BG_ROW_B     = "#0C1120"
 BG_ENTRY     = "#070B14"
 BG_HDR       = "#060A12"
 
-NE_LIME      = "#39FF6E"   # neon lime   — FASTBOOT
-NE_VIOLET    = "#BF6EFF"   # neon violet — ODIN
-NE_AMBER     = "#FFB347"   # amber       — warnings/browse
-NE_CYAN      = "#00EEFF"   # cyan        — info
-NE_RED       = "#FF3B5C"   # red         — danger
-NE_PINK      = "#FF2D9F"   # pink        — reboot
+NE_LIME      = "#39FF6E"
+NE_VIOLET    = "#BF6EFF"
+NE_AMBER     = "#FFB347"
+NE_CYAN      = "#00EEFF"
+NE_RED       = "#FF3B5C"
+NE_PINK      = "#FF2D9F"
 
 FG_BRIGHT    = "#DEE8F0"
 FG_MID       = "#5A7090"
@@ -43,20 +43,20 @@ FONT_PANEL   = ("Courier New", 10, "bold")
 
 
 # ══════════════════════════════════════════════════════════════
-#   SMART PATH RESOLVER — يدعم PyInstaller + مجلد bin + مجلد src
+#   SMART PATH RESOLVER - Supports PyInstaller + bin dir + src dir
 # ══════════════════════════════════════════════════════════════
 def _resolve_exe(filename: str) -> str:
     """
-    يبحث عن ملف تنفيذي في المسارات التالية بالترتيب:
-      1. مجلد التطبيق (base)          — TURBO/
+    Searches for an executable file in the following paths in order:
+      1. App folder (base)          - TURBO/
       2. TURBO/bin/
-      3. مجلد العمل الحالي (cwd)
+      3. Current Working Dir (cwd)
       4. TURBO/cwd/bin/
-      5. PATH الخاص بالنظام (shutil)
-    يعيد المسار الكامل إذا وُجد، وإلا اسم الملف لاستخدامه من PATH.
+      5. System PATH (shutil)
+    Returns full path if found, else just filename to use from PATH.
     """
     if getattr(sys, "frozen", False):
-        # حالة PyInstaller (ekoflash.exe compiled)
+        # PyInstaller state (ekoflash.exe compiled)
         base = sys._MEIPASS
     else:
         base = os.path.dirname(os.path.abspath(__file__))
@@ -64,14 +64,14 @@ def _resolve_exe(filename: str) -> str:
     cwd = os.getcwd()
 
     candidates = [
-        # جذر المشروع TURBO/
+        # Project root TURBO/
         os.path.join(base, filename),
         # TURBO/bin/
         os.path.join(base, "bin", filename),
-        # مجلد العمل
+        # Working directory
         os.path.join(cwd, filename),
         os.path.join(cwd, "bin", filename),
-        # مجلد المشروع صعوداً (في حال تشغيل من src/ أو app/)
+        # Project dir upwards (if running from src/ or app/)
         os.path.join(base, "..", filename),
         os.path.join(base, "..", "bin", filename),
     ]
@@ -81,14 +81,14 @@ def _resolve_exe(filename: str) -> str:
         if os.path.isfile(norm):
             return norm
 
-    # الملف غير موجود — أعِد الاسم فقط لعله موجود في PATH
+    # File not found - return name only, might be in PATH
     return filename
 
 
 def _resolve_src_dir(subpath: str) -> str:
     """
-    يُعيد المسار الكامل لمجلد داخل src/
-    مثال: _resolve_src_dir("protocol/odin") → TURBO/src/protocol/odin
+    Returns the full path for a directory inside src/
+    Example: _resolve_src_dir("protocol/odin") -> TURBO/src/protocol/odin
     """
     if getattr(sys, "frozen", False):
         base = sys._MEIPASS
@@ -108,7 +108,7 @@ def _resolve_src_dir(subpath: str) -> str:
         if os.path.isdir(norm):
             return norm
 
-    return os.path.join(base, "src", subpath)   # قيمة افتراضية
+    return os.path.join(base, "src", subpath)   # Default value
 
 
 # ──────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ class NeonBtn(tk.Frame):
 
 # ──────────────────────────────────────────────────────────────
 class PartRow(tk.Frame):
-    """صف واحد من جدول FASTBOOT لقسم معين."""
+    """Single row of FASTBOOT table for a specific partition."""
 
     def __init__(self, parent, idx, name, var, browse_cmd, flash_cmd, accent):
         bg = BG_ROW_A if idx % 2 == 0 else BG_ROW_B
@@ -189,7 +189,7 @@ class PartRow(tk.Frame):
 
 # ──────────────────────────────────────────────────────────────
 class OdinFileRow(tk.Frame):
-    """صف واحد من جدول ODIN لفتحة ملف (slot)."""
+    """Single row of ODIN table for a file slot."""
 
     COLORS = {
         "BL":       NE_AMBER,
@@ -237,19 +237,27 @@ class EkoFlashV3:
         self.root.geometry("980x840")
         self.root.configure(bg=BG_ROOT)
         self.root.resizable(False, False)
+        
+        # Add Icon
+        try:
+            icon_path = _resolve_exe("icon.ico")
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+        except Exception:
+            pass
 
-        # ── مسارات المحركات التنفيذية (محسّنة) ──────────────────
-        # fastboot.exe  → TURBO/fastboot.exe  أو  TURBO/bin/fastboot.exe
+        # ── Executable Engine Paths (Optimized) ──────────────────
+        # fastboot.exe  -> TURBO/fastboot.exe  or  TURBO/bin/fastboot.exe
         self.fastboot_exe = _resolve_exe("fastboot.exe")
 
-        # adb.exe       → TURBO/adb.exe  أو  TURBO/bin/adb.exe
+        # adb.exe       -> TURBO/adb.exe  or  TURBO/bin/adb.exe
         self.adb_exe      = _resolve_exe("adb.exe")
 
-        # ekoflash.exe  → المحرك C++ المُجمَّع من src/protocol/odin/
-        #                 يُبحث في: TURBO/ ثم TURBO/bin/ ثم PATH
+        # ekoflash.exe  -> C++ Engine compiled from src/protocol/odin/
+        #                 Searches in: TURBO/ then TURBO/bin/ then PATH
         self.odin_exe     = _resolve_exe("ekoflash.exe")
 
-        # ── مسارات مجلدات src/ (للمرجع واللوج) ──────────────────
+        # ── src/ Directory Paths (For reference & logs) ──────────────────
         self.src_app      = _resolve_src_dir("app")
         self.src_core     = _resolve_src_dir("core")
         self.src_io       = _resolve_src_dir("io")
@@ -257,7 +265,7 @@ class EkoFlashV3:
         self.src_odin     = _resolve_src_dir("protocol/odin")
         self.src_3p       = _resolve_src_dir("third_party")
 
-        # ── متغيرات الحالة ────────────────────────────────────────
+        # ── State Variables ────────────────────────────────────────
         self.part_vars       = {}
         self.odin_vars       = {}
         self.odin_opts_vars  = {}
@@ -299,7 +307,7 @@ class EkoFlashV3:
         bar.pack(fill="x")
         bar.pack_propagate(False)
 
-        # ── يسار: شعار + اسم المطوّر ──
+        # ── Left: Logo + Developer Name ──
         left = tk.Frame(bar, bg=BG_SIDEBAR)
         left.pack(side="left", padx=18, pady=10)
 
@@ -321,11 +329,11 @@ class EkoFlashV3:
                  bg=BG_SIDEBAR, fg=NE_AMBER,
                  font=("Courier New", 9, "bold")).pack(side="left")
 
-        # ── يمين: بطاقات الحالة ──
+        # ── Right: Status Cards ──
         right = tk.Frame(bar, bg=BG_SIDEBAR)
         right.pack(side="right", padx=18, pady=10)
 
-        # بطاقة الجهاز
+        # Device card
         dev_card = tk.Frame(right, bg=BG_CARD,
                             highlightbackground=BORDER_ACT,
                             highlightthickness=1)
@@ -336,7 +344,7 @@ class EkoFlashV3:
                              bg=BG_CARD, fg=NE_RED, font=FONT_MONO_B)
         self._dot.pack(padx=12, pady=(1, 5))
 
-        # بطاقة الوضع
+        # Mode card
         info_card = tk.Frame(right, bg=BG_CARD,
                              highlightbackground=BORDER_ACT,
                              highlightthickness=1)
@@ -346,7 +354,7 @@ class EkoFlashV3:
         tk.Label(info_card, text="DUAL PANEL", bg=BG_CARD, fg=NE_CYAN,
                  font=FONT_MONO_B).pack(padx=12, pady=(1, 5))
 
-        # خط فاصل
+        # Divider line
         tk.Frame(self.root, bg=NE_LIME,  height=1).pack(fill="x")
         tk.Frame(self.root, bg=FG_DIM,   height=1).pack(fill="x")
 
@@ -379,7 +387,7 @@ class EkoFlashV3:
         pad = tk.Frame(sb, bg=BG_SIDEBAR)
         pad.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # ── إحصائيات الجهاز ──
+        # ── Device Stats ──
         tk.Label(pad, text="DEVICE STATS", bg=BG_SIDEBAR, fg=NE_CYAN,
                  font=("Courier New", 7, "bold")).pack(anchor="w", pady=(4, 2))
         hline(pad, NE_CYAN, pady=2)
@@ -400,7 +408,7 @@ class EkoFlashV3:
             lbl.pack(side="left", fill="x")
             self._stat_frames[key] = lbl
 
-        # ── أوامر سريعة ──
+        # ── Quick Commands ──
         hline(pad, BORDER_ACT, pady=6)
         tk.Label(pad, text="QUICK CMD", bg=BG_SIDEBAR, fg=NE_AMBER,
                  font=("Courier New", 7, "bold")).pack(anchor="w", pady=(0, 4))
@@ -424,7 +432,7 @@ class EkoFlashV3:
             btn.bind("<Enter>",   lambda e, b=btn, c=col: b.config(bg=c, fg="#000"))
             btn.bind("<Leave>",   lambda e, b=btn, c=col: b.config(bg=BG_CARD, fg=c))
 
-        # ── خيارات ──
+        # ── Options ──
         hline(pad, BORDER_ACT, pady=6)
         tk.Checkbutton(pad, text=" Auto-Reboot",
                        variable=self.auto_reboot_var,
@@ -438,7 +446,7 @@ class EkoFlashV3:
         NeonBtn(pad, "CLEAR LOGS", self._clear_all_logs,
                 NE_RED, 13, small=True).pack(anchor="w", pady=2)
 
-        # ── تذييل: مسار المحرك ──
+        # ── Footer: Engine Path ──
         hline(pad, BORDER_ACT, pady=4)
         exe_name = os.path.basename(self.odin_exe)
         tk.Label(pad, text=f"ENGINE: {exe_name}",
@@ -458,7 +466,7 @@ class EkoFlashV3:
         panel = tk.Frame(parent, bg=BG_PANEL)
         panel.pack(fill="both", expand=True)
 
-        # رأس اللوحة
+        # Panel Header
         phdr = tk.Frame(panel, bg=BG_HDR, height=28)
         phdr.pack(fill="x")
         phdr.pack_propagate(False)
@@ -473,7 +481,7 @@ class EkoFlashV3:
         body = tk.Frame(panel, bg=BG_PANEL)
         body.pack(fill="both", expand=True, padx=8, pady=4)
 
-        # رأس الجدول
+        # Table Header
         th = tk.Frame(body, bg=BG_HDR)
         th.pack(fill="x", pady=(0, 1))
         for txt, w in [("  #", 3), ("PARTITION", 10), ("IMAGE FILE PATH", 0), ("", 14)]:
@@ -521,7 +529,7 @@ class EkoFlashV3:
         panel = tk.Frame(parent, bg=BG_PANEL)
         panel.pack(fill="both", expand=True)
 
-        # رأس اللوحة
+        # Panel Header
         phdr = tk.Frame(panel, bg=BG_HDR, height=28)
         phdr.pack(fill="x")
         phdr.pack_propagate(False)
@@ -558,7 +566,7 @@ class EkoFlashV3:
         right.pack(side="right", fill="y", padx=(8, 0))
         right.pack_propagate(False)
 
-        # ── فتحات الملفات ──
+        # ── File Slots ──
         hline(left, NE_VIOLET)
 
         slotbar = tk.Frame(left, bg=BG_HDR)
@@ -584,7 +592,7 @@ class EkoFlashV3:
 
         hline(left, BORDER_DIM, pady=2)
 
-        # صف PIT
+        # PIT Row
         pit_row = tk.Frame(left, bg=BG_ROW_A, height=34)
         pit_row.pack(fill="x")
         pit_row.pack_propagate(False)
@@ -610,7 +618,7 @@ class EkoFlashV3:
         NeonBtn(ctrl, "⊗ RESET",
                 self.odin_reset, NE_RED, 8).pack(side="left")
 
-        # ── يمين: لوج + نتيجة + خيارات ──
+        # ── Right: Log + Result + Options ──
         tk.Label(right, text="ENGINE LOG",
                  bg=BG_PANEL, fg=NE_VIOLET, font=FONT_SMALL).pack(anchor="w")
 
@@ -687,25 +695,25 @@ class EkoFlashV3:
 
     # ──────────────────────────────────────────────────────────
     def _monitor(self):
-        """مراقبة الجهاز كل 3 ثوانٍ عبر fastboot ثم ekoflash."""
+        """Monitor device every 3 seconds via fastboot then ekoflash."""
         cf = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         while True:
             try:
-                # 1. تحقق من fastboot
+                # 1. Check fastboot
                 r = subprocess.run(
                     [self.fastboot_exe, "devices"],
                     capture_output=True, text=True, creationflags=cf,
                     timeout=5)
                 if r.stdout.strip():
                     lines  = r.stdout.strip().splitlines()
-                    serial = lines[0].split()[0] if lines else "—"
+                    serial = lines[0].split()[0] if lines else "-"
                     self._dev_state = "FASTBOOT"
                     self._dot.config(text="◉  FASTBOOT", fg=NE_LIME)
                     self._stat_frames["STATUS"].config(text="ONLINE",   fg=NE_LIME)
                     self._stat_frames["PROTOCOL"].config(text="FASTBOOT", fg=NE_CYAN)
                     self._stat_frames["SERIAL"].config(text=serial[:12], fg=FG_MID)
                 else:
-                    # 2. تحقق من وضع DOWNLOAD عبر ekoflash (src/protocol/odin)
+                    # 2. Check DOWNLOAD mode via ekoflash (src/protocol/odin)
                     try:
                         r2 = subprocess.run(
                             [self.odin_exe, "detect"],
@@ -724,8 +732,8 @@ class EkoFlashV3:
                         self._dev_state = "OFFLINE"
                         self._dot.config(text="◉  OFFLINE", fg=NE_RED)
                         self._stat_frames["STATUS"].config(text="OFFLINE", fg=NE_RED)
-                        self._stat_frames["PROTOCOL"].config(text="—",     fg=FG_DIM)
-                        self._stat_frames["SERIAL"].config(text="—",       fg=FG_DIM)
+                        self._stat_frames["PROTOCOL"].config(text="-",     fg=FG_DIM)
+                        self._stat_frames["SERIAL"].config(text="-",       fg=FG_DIM)
             except Exception:
                 pass
             time.sleep(3)
@@ -756,7 +764,7 @@ class EkoFlashV3:
 
     # ──────────────────────────────────────────────────────────
     def _exec(self, cmd: list, title: str, target: str = "FB"):
-        """تنفيذ أمر خارجي مع قراءة المخرجات سطراً سطراً."""
+        """Execute external command and read output line by line."""
         self._write(f"RUN: {title}", target)
         cf = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         try:
@@ -765,10 +773,11 @@ class EkoFlashV3:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                bufsize=1,
                 creationflags=cf)
             for line in proc.stdout:
                 if line.strip():
-                    self._write(f" › {line.strip()}", target)
+                    self._write(f" > {line.strip()}", target)
             proc.wait()
             if proc.returncode == 0:
                 self._write(f"SUCCESS ✓ {title}", target)
@@ -779,12 +788,12 @@ class EkoFlashV3:
                 if self.auto_reboot_var.get() and target == "FB":
                     self.reboot_device()
             else:
-                self._write(f"ERROR ✗ {title} (code {proc.returncode})", target)
+                self._write(f"ERROR X {title} (code {proc.returncode})", target)
                 if target == "OD":
-                    self.pass_label.config(text="FAIL ✗", bg="#200010", fg=NE_RED)
+                    self.pass_label.config(text="FAIL X", bg="#200010", fg=NE_RED)
         except FileNotFoundError:
-            self._write(f"CRITICAL: executable not found → {cmd[0]}", target)
-            self._write(f"  تحقق من وجود الملف في: {os.path.dirname(os.path.abspath(cmd[0]))}", target)
+            self._write(f"CRITICAL: executable not found -> {cmd[0]}", target)
+            self._write(f"  Check if file exists in: {os.path.dirname(os.path.abspath(cmd[0]))}", target)
         except Exception as ex:
             self._write(f"CRITICAL: {ex}", target)
 
@@ -815,8 +824,8 @@ class EkoFlashV3:
     # ──────────────────────────────────────────────────────────
     # ODIN OPERATIONS
     # ──────────────────────────────────────────────────────────
-    # خريطة تحويل اسم الفتحة → اسم العَلَم في ekoflash.exe
-    # (يعتمد على src/protocol/odin/odin_cmd.hpp)
+    # Map slot name -> flag name in ekoflash.exe
+    # (Based on src/protocol/odin/odin_cmd.hpp)
     SLOT_FLAGS = {
         "BL":       "bootloader",
         "AP":       "system",
@@ -826,14 +835,14 @@ class EkoFlashV3:
     }
 
     def _build_odin_cmd(self, selected: list) -> list:
-        """يبني أمر ekoflash الكامل بناءً على الفتحات المحددة."""
+        """Builds the complete ekoflash command based on selected slots."""
         cmd = [self.odin_exe, "flash"]
         if self.pit_var.get():
             cmd += ["--pit", self.pit_var.get()]
         for slot, path in selected:
             flag = self.SLOT_FLAGS.get(slot, slot.lower())
             cmd += [f"--{flag}", path]
-        # خيارات اختيارية من لوحة OPTIONS
+        # Optional settings from OPTIONS panel
         if self.odin_opts_vars.get("Nand Erase",    tk.BooleanVar()).get():
             cmd.append("--nand-erase")
         if self.odin_opts_vars.get("Re-Partition",  tk.BooleanVar()).get():
@@ -845,7 +854,7 @@ class EkoFlashV3:
         return cmd
 
     def _flash_odin_single(self, slot: str):
-        """يفلاش فتحة واحدة فقط عبر ekoflash."""
+        """Flashes a single slot via ekoflash."""
         path = self.odin_vars[slot]["path"].get()
         if not path:
             self._write(f"ERROR: No file selected for [{slot}]", "OD")
@@ -853,7 +862,7 @@ class EkoFlashV3:
             return
 
         cmd = self._build_odin_cmd([(slot, path)])
-        self.pass_label.config(text=f"→ {slot}", bg="#0D0020", fg=NE_VIOLET)
+        self.pass_label.config(text=f"-> {slot}", bg="#0D0020", fg=NE_VIOLET)
         self.progress_var.set(0)
         self.percent_lbl.config(text="0%")
         self._write(f"<CORE> Flash {slot}: {os.path.basename(path)}", "OD")
@@ -865,7 +874,7 @@ class EkoFlashV3:
         ).start()
 
     def start_odin_flash(self):
-        """يفلاش كل الفتحات المحددة عبر ekoflash (src/protocol/odin)."""
+        """Flashes all selected slots via ekoflash (src/protocol/odin)."""
         selected = [
             (slot, data["path"].get())
             for slot, data in self.odin_vars.items()
@@ -876,7 +885,7 @@ class EkoFlashV3:
             self.pass_label.config(text="NO FILES", bg="#201000", fg=NE_AMBER)
             return
 
-        self.pass_label.config(text="FLASHING…", bg="#0D0020", fg=NE_VIOLET)
+        self.pass_label.config(text="FLASHING...", bg="#0D0020", fg=NE_VIOLET)
         self.progress_var.set(0)
         self._write(f"<ENGINE> Multi-flash: {len(selected)} slot(s) queued", "OD")
 
@@ -884,13 +893,13 @@ class EkoFlashV3:
             total = len(selected)
             for i, (slot, path) in enumerate(selected):
                 self._write(
-                    f" ├ [{i+1}/{total}] {slot}: {os.path.basename(path)}", "OD")
+                    f" |- [{i+1}/{total}] {slot}: {os.path.basename(path)}", "OD")
                 pct = ((i + 1) / total) * 60
                 self.progress_var.set(pct)
                 self.percent_lbl.config(text=f"{int(pct)}%")
                 time.sleep(0.15)
 
-            self._write(" └ Sending to device via engine…", "OD")
+            self._write(" |- Sending to device via engine...", "OD")
             cmd = self._build_odin_cmd(selected)
             self._exec(cmd, "Engine Multi-Flash", "OD")
 
@@ -925,17 +934,17 @@ class EkoFlashV3:
     def reboot_device(self):
         cf = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         subprocess.run([self.fastboot_exe, "reboot"], creationflags=cf)
-        self._write("Reboot → system", "FB")
+        self._write("Reboot -> system", "FB")
 
     def _reboot_bootloader(self):
         cf = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         subprocess.run([self.fastboot_exe, "reboot-bootloader"], creationflags=cf)
-        self._write("Reboot → bootloader", "FB")
+        self._write("Reboot -> bootloader", "FB")
 
     def _reboot_recovery(self):
         cf = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         subprocess.run([self.fastboot_exe, "reboot", "recovery"], creationflags=cf)
-        self._write("Reboot → recovery", "FB")
+        self._write("Reboot -> recovery", "FB")
 
     def odin_reset(self):
         for slot in self.odin_vars:
