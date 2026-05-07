@@ -23,6 +23,17 @@ jobs:
           vcpkg install fmt:x64-windows spdlog:x64-windows
           vcpkg integrate install
 
+      - name: Generate main.cpp entry point
+        shell: pwsh
+        run: |
+          @"
+          #include "cli_mode.hpp"
+          int main(int argc, char* argv[]) {
+              return cli_main(argc, argv);
+          }
+          "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
+          Write-Host "main.cpp generated OK"
+
       - name: Build ekoflash.exe (C++ Engine via MSVC)
         shell: pwsh
         run: |
@@ -49,6 +60,7 @@ jobs:
             "src\app\cli_mode.cpp",
             "src\app\md5_verify.cpp",
             "src\app\md5_xxh3_cache.cpp",
+            "src\app\main.cpp",
             "src\third_party\lz4\lz4.c",
             "src\third_party\md5\md5.c"
           )
@@ -58,6 +70,7 @@ jobs:
             "/I src\core",
             "/I src\io",
             "/I src\platform\windows",
+            "/I src\platform\posix-common",
             "/I src\protocol\odin",
             "/I src\app",
             "/I src\third_party\lz4",
@@ -94,7 +107,7 @@ jobs:
                  " /Fe:ekoflash.exe" +
                  " /link $libPath $linkLibs"
 
-          Write-Host "=== CMD ===" 
+          Write-Host "=== CMD ==="
           Write-Host $cmd
           Invoke-Expression $cmd
 
