@@ -18,8 +18,17 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build ekoflash.exe (C++ Engine via MSVC)
+      - name: Install fmt library via vcpkg
         run: |
+          vcpkg install fmt:x64-windows
+          vcpkg integrate install
+
+      - name: Build ekoflash.exe (C++ Engine via MSVC)
+        shell: pwsh
+        run: |
+          $VCPKG_INC = "C:\vcpkg\installed\x64-windows\include"
+          $VCPKG_LIB = "C:\vcpkg\installed\x64-windows\lib"
+
           $sources = @(
             "src\protocol\odin\flash.cpp",
             "src\protocol\odin\group_flasher.cpp",
@@ -43,6 +52,7 @@ jobs:
             "src\third_party\lz4\lz4.c",
             "src\third_party\md5\md5.c"
           )
+
           $includes = @(
             "/I src",
             "/I src\core",
@@ -52,14 +62,25 @@ jobs:
             "/I src\app",
             "/I src\third_party\lz4",
             "/I src\third_party\md5",
-            "/I src\third_party\xxhash"
+            "/I src\third_party\xxhash",
+            "/I $VCPKG_INC"
           )
+
           $srcList  = $sources  -join " "
           $inclList = $includes -join " "
-          $cmd = "cl.exe /std:c++17 /O2 /EHsc $inclList $srcList /Fe:ekoflash.exe /link Ws2_32.lib SetupAPI.lib"
-          Write-Host "Running: $cmd"
+
+          $cmd = "cl.exe /std:c++latest /O2 /EHsc $inclList $srcList" +
+                 " /Fe:ekoflash.exe" +
+                 " /link Ws2_32.lib SetupAPI.lib" +
+                 " /LIBPATH:$VCPKG_LIB fmt.lib"
+
+          Write-Host "CMD: $cmd"
           Invoke-Expression $cmd
-          if (-not (Test-Path "ekoflash.exe")) { exit 1 }
+
+          if (-not (Test-Path "ekoflash.exe")) {
+            Write-Host "ERROR: ekoflash.exe not found!"
+            exit 1
+          }
           Write-Host "Engine built OK"
 
       - name: Set up Python
