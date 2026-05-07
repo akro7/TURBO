@@ -21,6 +21,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install fmt + spdlog via vcpkg
+        shell: pwsh
         run: |
           vcpkg install fmt:x64-windows spdlog:x64-windows
           vcpkg integrate install
@@ -30,11 +31,11 @@ jobs:
         run: |
           if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
           @"
-#include "cli_mode.hpp"
-int main(int argc, char* argv[]) {
-    return brokkr::app::run_cli(argc, argv);
-}
-"@ | Set-Content "src\app\main.cpp" -Encoding UTF8
+          #include "cli_mode.hpp"
+          int main(int argc, char* argv[]) {
+              return brokkr::app::run_cli(argc, argv);
+          }
+          "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
           Write-Host "main.cpp generated OK"
 
       - name: Build ekoflash.exe (C++ Engine via MSVC)
