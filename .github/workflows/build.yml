@@ -20,10 +20,10 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install fmt + spdlog via vcpkg
+      - name: Install fmt + spdlog via vcpkg (Static)
         shell: pwsh
         run: |
-          vcpkg install fmt:x64-windows spdlog:x64-windows
+          vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
           vcpkg integrate install
 
       - name: Generate main.cpp entry point
@@ -38,11 +38,11 @@ jobs:
           "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
           Write-Host "main.cpp generated OK"
 
-      - name: Build ekoflash.exe (C++ Engine via MSVC)
+      - name: Build ekoflash.exe (C++ Engine via MSVC - Static)
         shell: pwsh
         run: |
-          $VCPKG_INC = "C:\vcpkg\installed\x64-windows\include"
-          $VCPKG_LIB = "C:\vcpkg\installed\x64-windows\lib"
+          $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
+          $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
 
           $sources = @(
             "src\protocol\odin\flash.cpp",
@@ -94,6 +94,7 @@ jobs:
           $flags = @(
             "/std:c++latest",
             "/O2",
+            "/MT",
             "/EHsc",
             "/utf-8",
             "/Zc:__cplusplus"
@@ -104,7 +105,6 @@ jobs:
           $defineList = $defines  -join " "
           $flagList   = $flags    -join " "
 
-          # تم إضافة المكتبات المفقودة هنا: User32 و Advapi32 و fmt
           $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib fmt.lib"
           $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
 
@@ -120,7 +120,7 @@ jobs:
             Write-Error "ERROR: ekoflash.exe not found!"
             exit 1
           }
-          Write-Host "Engine built OK"
+          Write-Host "Engine built OK (Static)"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -139,7 +139,7 @@ jobs:
           $files = @(
             "ekoflash.py","ekoflash.exe","fastboot.exe","adb.exe",
             "AdbWinApi.dll","AdbWinUsbApi.dll","libusb-1.0.dll",
-            "zadig.exe","THIRD_PARTY_NOTICES.txt","LICENSE"
+            "zadig.exe","THIRD_PARTY_NOTICES.txt","LICENSE","icon.ico"
           )
           foreach ($f in $files) {
             if (Test-Path $f) { Write-Host "OK: $f" }
@@ -150,6 +150,7 @@ jobs:
         shell: pwsh
         run: |
           python -m PyInstaller --noconsole --onefile `
+            --icon "icon.ico" `
             --add-data "ekoflash.exe;." `
             --add-data "fastboot.exe;." `
             --add-data "adb.exe;." `
@@ -159,6 +160,7 @@ jobs:
             --add-data "zadig.exe;." `
             --add-data "THIRD_PARTY_NOTICES.txt;." `
             --add-data "LICENSE;." `
+            --add-data "icon.ico;." `
             --name "EKOFLASH_PRO_v3.0" ekoflash.py
 
       - name: Upload Artifact
