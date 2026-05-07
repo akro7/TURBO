@@ -104,7 +104,8 @@ jobs:
           $defineList = $defines  -join " "
           $flagList   = $flags    -join " "
 
-          $linkLibs = "Ws2_32.lib SetupAPI.lib"
+          # تم إضافة المكتبات المفقودة هنا: User32 و Advapi32 و fmt
+          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib fmt.lib"
           $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
 
           $cmd = "cl.exe $flagList $inclList $defineList $srcList" +
