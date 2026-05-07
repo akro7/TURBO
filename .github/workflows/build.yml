@@ -3,11 +3,14 @@ name: Build EKOFLASH EXE
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # هذا السطر هو المسؤول عن إظهار زر التشغيل اليدوي
 
 jobs:
   build:
     runs-on: windows-latest
+    
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v4
@@ -18,7 +21,8 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install fmt + spdlog via vcpkg
+      - name: Install vcpkg dependencies
+        shell: pwsh
         run: |
           vcpkg install fmt:x64-windows spdlog:x64-windows
           vcpkg integrate install
@@ -26,96 +30,57 @@ jobs:
       - name: Generate main.cpp entry point
         shell: pwsh
         run: |
-          @"
-#include "cli_mode.hpp"
-int main(int argc, char* argv[]) {
-    return brokkr::app::run_cli(argc, argv);
-}
-"@ | Set-Content "src\app\main.cpp" -Encoding UTF8
-          Write-Host "main.cpp generated OK"
+          if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
+          $content = @"
+          #include "cli_mode.hpp"
+          int main(int argc, char* argv[]) {
+              return brokkr::app::run_cli(argc, argv);
+          }
+          "@
+          $content | Out-File -FilePath "src\app\main.cpp" -Encoding utf8
+          Write-Host "main.cpp generated successfully"
 
-      - name: Build ekoflash.exe (C++ Engine via MSVC)
+      - name: Build ekoflash.exe (C++ Engine)
         shell: pwsh
         run: |
           $VCPKG_INC = "C:\vcpkg\installed\x64-windows\include"
           $VCPKG_LIB = "C:\vcpkg\installed\x64-windows\lib"
 
           $sources = @(
-            "src\protocol\odin\flash.cpp",
-            "src\protocol\odin\group_flasher.cpp",
-            "src\protocol\odin\odin_cmd.cpp",
-            "src\protocol\odin\pit.cpp",
-            "src\protocol\odin\pit_transfer.cpp",
-            "src\core\thread_pool.cpp",
-            "src\io\lz4_frame.cpp",
-            "src\io\source.cpp",
-            "src\io\tar.cpp",
-            "src\platform\windows\app_dirs.cpp",
-            "src\platform\windows\signal_shield.cpp",
-            "src\platform\windows\single_instance.cpp",
-            "src\platform\windows\sysfs_usb.cpp",
-            "src\platform\windows\tcp_transport.cpp",
-            "src\platform\windows\usbfs_conn.cpp",
-            "src\platform\windows\usbfs_device.cpp",
-            "src\app\cli_mode.cpp",
-            "src\app\md5_verify.cpp",
-            "src\app\md5_xxh3_cache.cpp",
-            "src\app\main.cpp",
-            "src\third_party\lz4\lz4.c",
-            "src\third_party\md5\md5.c"
+            "src\protocol\odin\flash.cpp", "src\protocol\odin\group_flasher.cpp",
+            "src\protocol\odin\odin_cmd.cpp", "src\protocol\odin\pit.cpp",
+            "src\protocol\odin\pit_transfer.cpp", "src\core\thread_pool.cpp",
+            "src\io\lz4_frame.cpp", "src\io\source.cpp", "src\io\tar.cpp",
+            "src\platform\windows\app_dirs.cpp", "src\platform\windows\signal_shield.cpp",
+            "src\platform\windows\single_instance.cpp", "src\platform\windows\sysfs_usb.cpp",
+            "src\platform\windows\tcp_transport.cpp", "src\platform\windows\usbfs_conn.cpp",
+            "src\platform\windows\usbfs_device.cpp", "src\app\cli_mode.cpp",
+            "src\app\md5_verify.cpp", "src\app\md5_xxh3_cache.cpp",
+            "src\app\main.cpp", "src\third_party\lz4\lz4.c", "src\third_party\md5\md5.c"
           )
 
           $includes = @(
-            "/I src",
-            "/I src\core",
-            "/I src\io",
-            "/I src\platform\windows",
-            "/I src\platform\posix-common",
-            "/I src\protocol\odin",
-            "/I src\app",
-            "/I src\third_party\lz4",
-            "/I src\third_party\md5",
-            "/I src\third_party\xxhash",
-            "/I `"$VCPKG_INC`""
+            "/Isrc", "/Isrc\core", "/Isrc\io", "/Isrc\platform\windows",
+            "/Isrc\platform\posix-common", "/Isrc\protocol\odin", "/Isrc\app",
+            "/Isrc\third_party\lz4", "/Isrc\third_party\md5", "/Isrc\third_party\xxhash",
+            "/I`"$VCPKG_INC`""
           )
 
-          $defines = @(
-            "/D BROKKR_PLATFORM_WINDOWS",
-            "/D WIN32_LEAN_AND_MEAN",
-            "/D NOMINMAX",
-            "/D _WIN32_WINNT=0x0A00",
-            "/D SPDLOG_FMT_EXTERNAL"
-          )
-
-          $flags = @(
-            "/std:c++latest",
-            "/O2",
-            "/EHsc",
-            "/utf-8",
-            "/Zc:__cplusplus"
-          )
-
-          $srcList    = $sources  -join " "
-          $inclList   = $includes -join " "
-          $defineList = $defines  -join " "
-          $flagList   = $flags    -join " "
-
+          $defines = "/DBROKKR_PLATFORM_WINDOWS /DWIN32_LEAN_AND_MEAN /DNOMINMAX /D_WIN32_WINNT=0x0A00 /DSPDLOG_FMT_EXTERNAL"
+          $flags = "/std:c++latest /O2 /EHsc /utf-8 /Zc:__cplusplus"
+          
+          $srcList = $sources -join " "
+          $inclList = $includes -join " "
+          
           $linkLibs = "Ws2_32.lib SetupAPI.lib"
-          $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
+          $libPath = "/LIBPATH:`"$VCPKG_LIB`""
 
-          $cmd = "cl.exe $flagList $inclList $defineList $srcList" +
-                 " /Fe:ekoflash.exe" +
-                 " /link $libPath $linkLibs"
-
-          Write-Host "=== CMD ==="
-          Write-Host $cmd
-          Invoke-Expression $cmd
-
+          cl.exe $flags $inclList $defines $srcList /Fe:ekoflash.exe /link $libPath $linkLibs
+          
           if (-not (Test-Path "ekoflash.exe")) {
-            Write-Host "ERROR: ekoflash.exe not found!"
+            Write-Error "Build failed: ekoflash.exe not created!"
             exit 1
           }
-          Write-Host "Engine built OK"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -123,23 +88,28 @@ int main(int argc, char* argv[]) {
           python-version: '3.10'
 
       - name: Install Python Dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
 
-      - name: Verify Assets
+      - name: Verify Assets Existence
+        shell: pwsh
         run: |
-          $files = @(
-            "ekoflash.py","ekoflash.exe","fastboot.exe","adb.exe",
-            "AdbWinApi.dll","AdbWinUsbApi.dll","libusb-1.0.dll",
-            "zadig.exe","THIRD_PARTY_NOTICES.txt","LICENSE"
+          $requiredFiles = @(
+            "ekoflash.py", "ekoflash.exe", "fastboot.exe", "adb.exe",
+            "AdbWinApi.dll", "AdbWinUsbApi.dll", "libusb-1.0.dll",
+            "zadig.exe", "THIRD_PARTY_NOTICES.txt", "LICENSE"
           )
-          foreach ($f in $files) {
-            if (Test-Path $f) { Write-Host "OK: $f" }
-            else { Write-Host "MISSING: $f"; exit 1 }
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path $file)) {
+              Write-Error "Missing required file: $file"
+              exit 1
+            }
           }
 
       - name: Build GUI EXE with PyInstaller
+        shell: pwsh
         run: |
           python -m PyInstaller --noconsole --onefile `
             --add-data "ekoflash.exe;." `
@@ -156,5 +126,5 @@ int main(int argc, char* argv[]) {
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_TURBO
+          name: EKOFLASH_TURBO_PACKAGE
           path: dist/EKOFLASH_PRO_v3.0.exe
