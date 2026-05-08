@@ -1,4 +1,4 @@
-name: Build EKOFLASH EXE
+name: Build EKOFLASH PRO (Full Integration)
 
 on:
   push:
@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-engine:
+    name: Build C++ Odin Engine
     runs-on: windows-latest
     steps:
       - name: Check Out Repository
@@ -36,135 +37,87 @@ jobs:
               return brokkr::app::run_cli(argc, argv);
           }
           "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
-          Write-Host "main.cpp generated OK"
 
-      - name: Build ekoflash.exe (C++ Engine via MSVC - Static)
+      - name: Build ekoflash.exe (Static C++)
         shell: pwsh
         run: |
           $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
           $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
-
+          
           $sources = @(
-            "src\protocol\odin\flash.cpp",
-            "src\protocol\odin\group_flasher.cpp",
-            "src\protocol\odin\odin_cmd.cpp",
-            "src\protocol\odin\pit.cpp",
-            "src\protocol\odin\pit_transfer.cpp",
-            "src\core\thread_pool.cpp",
-            "src\io\lz4_frame.cpp",
-            "src\io\source.cpp",
-            "src\io\tar.cpp",
-            "src\platform\windows\app_dirs.cpp",
-            "src\platform\windows\signal_shield.cpp",
-            "src\platform\windows\single_instance.cpp",
-            "src\platform\windows\sysfs_usb.cpp",
-            "src\platform\windows\tcp_transport.cpp",
-            "src\platform\windows\usbfs_conn.cpp",
-            "src\platform\windows\usbfs_device.cpp",
-            "src\app\cli_mode.cpp",
-            "src\app\md5_verify.cpp",
-            "src\app\md5_xxh3_cache.cpp",
-            "src\app\main.cpp",
+            "src\protocol\odin\*.cpp",
+            "src\core\*.cpp",
+            "src\io\*.cpp",
+            "src\platform\windows\*.cpp",
+            "src\app\*.cpp",
             "src\third_party\lz4\lz4.c",
             "src\third_party\md5\md5.c"
           )
-
+          
           $includes = @(
-            "/I src",
-            "/I src\core",
-            "/I src\io",
-            "/I src\platform\windows",
-            "/I src\platform\posix-common",
-            "/I src\protocol\odin",
-            "/I src\app",
-            "/I src\third_party\lz4",
-            "/I src\third_party\md5",
-            "/I src\third_party\xxhash",
-            "/I `"$VCPKG_INC`""
+            "/I src", "/I src\core", "/I src\io", 
+            "/I src\platform\windows", "/I src\protocol\odin", 
+            "/I src\app", "/I src\third_party\lz4", 
+            "/I src\third_party\md5", "/I `"$VCPKG_INC`""
           )
-
-          $defines = @(
-            "/D BROKKR_PLATFORM_WINDOWS",
-            "/D WIN32_LEAN_AND_MEAN",
-            "/D NOMINMAX",
-            "/D _WIN32_WINNT=0x0A00",
-            "/D SPDLOG_FMT_EXTERNAL"
-          )
-
-          $flags = @(
-            "/std:c++latest",
-            "/O2",
-            "/MT",
-            "/EHsc",
-            "/utf-8",
-            "/Zc:__cplusplus"
-          )
-
-          $srcList    = $sources  -join " "
-          $inclList   = $includes -join " "
-          $defineList = $defines  -join " "
-          $flagList   = $flags    -join " "
-
+          
+          $defines = @("/D BROKKR_PLATFORM_WINDOWS", "/D WIN32_LEAN_AND_MEAN", "/D NOMINMAX", "/D _WIN32_WINNT=0x0A00", "/D SPDLOG_FMT_EXTERNAL")
+          $flags = @("/std:c++latest", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus")
+          
+          $srcList = $sources -join " "
+          $inclList = $includes -join " "
+          $defList = $defines -join " "
+          $flagList = $flags -join " "
+          
           $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib fmt.lib"
-          $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
+          
+          cl.exe $flagList $inclList $defList $srcList /Fe:ekoflash.exe /link /LIBPATH:"$VCPKG_LIB" $linkLibs
 
-          $cmd = "cl.exe $flagList $inclList $defineList $srcList" +
-                 " /Fe:ekoflash.exe" +
-                 " /link $libPath $linkLibs"
-
-          Write-Host "=== CMD ==="
-          Write-Host $cmd
-          Invoke-Expression $cmd
-
-          if (-not (Test-Path "ekoflash.exe")) {
-            Write-Error "ERROR: ekoflash.exe not found!"
-            exit 1
-          }
-          Write-Host "Engine built OK (Static)"
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install Python Dependencies
-        shell: pwsh
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-
-      - name: Verify Assets
-        shell: pwsh
-        run: |
-          $files = @(
-            "ekoflash.py","ekoflash.exe","fastboot.exe","adb.exe",
-            "AdbWinApi.dll","AdbWinUsbApi.dll","libusb-1.0.dll",
-            "zadig.exe","THIRD_PARTY_NOTICES.txt","LICENSE","icon.ico"
-          )
-          foreach ($f in $files) {
-            if (Test-Path $f) { Write-Host "OK: $f" }
-            else { Write-Error "MISSING: $f"; exit 1 }
-          }
-
-      - name: Build GUI EXE with PyInstaller
-        shell: pwsh
-        run: |
-          python -m PyInstaller --noconsole --onefile `
-            --icon "icon.ico" `
-            --add-data "ekoflash.exe;." `
-            --add-data "fastboot.exe;." `
-            --add-data "adb.exe;." `
-            --add-data "AdbWinApi.dll;." `
-            --add-data "AdbWinUsbApi.dll;." `
-            --add-data "libusb-1.0.dll;." `
-            --add-data "zadig.exe;." `
-            --add-data "THIRD_PARTY_NOTICES.txt;." `
-            --add-data "LICENSE;." `
-            --add-data "icon.ico;." `
-            --name "EKOFLASH_PRO_v3.0" ekoflash.py
-
-      - name: Upload Artifact
+      - name: Upload Engine Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_TURBO
-          path: dist/EKOFLASH_PRO_v3.0.exe
+          name: odin-engine
+          path: ekoflash.exe
+
+  build-gui:
+    name: Build EKOFLASH GUI & Final Bundle
+    needs: build-engine
+    runs-on: windows-latest
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Download Engine Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: odin-engine
+          path: .
+
+      - name: Verify All Embedded Assets
+        shell: pwsh
+        run: |
+          $assets = @("ekoflash.exe", "adb.exe", "fastboot.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libusb-1.0.dll", "zadig.exe", "app.ico")
+          foreach ($file in $assets) {
+            if (Test-Path $file) { Write-Host "Verified: $file" }
+            else { Write-Error "Missing critical asset: $file"; exit 1 }
+          }
+
+      - name: Publish EKOFLASH PRO (Single Executable)
+        run: |
+          dotnet publish ekoflashtool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
+
+      - name: Rename Final Output
+        shell: pwsh
+        run: |
+          Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe"
+
+      - name: Upload Final Release
+        uses: actions/upload-artifact@v4
+        with:
+          name: EKOFLASH_TURBO_RELEASE
+          path: ./publish/EKOFLASH_PRO_v3.0.exe
