@@ -9,28 +9,23 @@ namespace MKVenomTool
     public static class ToolsManager
     {
         public static readonly string ToolsRoot =
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "EkoFlashTool", "bin");
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkoFlashTool", "bin");
 
         private static bool _extracted;
 
-        // Embedded resources map
-        private static readonly Dictionary<string, string> _map = new()
+        // Embedded resources -> extracted file path (relative to ToolsRoot)
+        private static readonly Dictionary<string, string> _resourceMap = new()
         {
-            ["EkoFlashTool.Resources.ekoflash.exe"]     = "ekoflash.exe",
-            ["EkoFlashTool.Resources.adb.exe"]          = "adb.exe",
-            ["EkoFlashTool.Resources.fastboot.exe"]     = "fastboot.exe",
-            ["EkoFlashTool.Resources.AdbWinApi.dll"]    = "AdbWinApi.dll",
-            ["EkoFlashTool.Resources.AdbWinUsbApi.dll"] = "AdbWinUsbApi.dll",
-            ["EkoFlashTool.Resources.libusb-1.0.dll"]   = "libusb-1.0.dll",
-            ["EkoFlashTool.Resources.zadig.exe"]        = "zadig.exe"
-        };
+            ["res.pt.adb.exe"]          = Path.Combine("platform-tools", "adb.exe"),
+            ["res.pt.fastboot.exe"]     = Path.Combine("platform-tools", "fastboot.exe"),
+            ["res.pt.AdbWinApi.dll"]    = Path.Combine("platform-tools", "AdbWinApi.dll"),
+            ["res.pt.AdbWinUsbApi.dll"] = Path.Combine("platform-tools", "AdbWinUsbApi.dll"),
 
-        public static string EkoFlashExe => GetToolPath("ekoflash.exe");
-        public static string AdbExe => GetToolPath("adb.exe");
-        public static string FastbootExe => GetToolPath("fastboot.exe");
-        public static string ZadigExe => GetToolPath("zadig.exe");
+            ["res.ok.ekoflash.exe"]     = Path.Combine("odin", "ekoflash.exe"),
+            ["res.ok.libusb.dll"]       = Path.Combine("odin", "libusb-1.0.dll"),
+
+            ["res.zd.zadig.exe"]        = Path.Combine("zadig", "zadig.exe")
+        };
 
         public static void EnsureExtracted()
         {
@@ -39,11 +34,16 @@ namespace MKVenomTool
             try
             {
                 Directory.CreateDirectory(ToolsRoot);
-
                 var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
 
-                foreach (var (logicalName, fileName) in _map)
+                foreach (var kv in _resourceMap)
                 {
+                    var logicalName = kv.Key;
+                    var relPath = kv.Value;
+                    var dst = Path.Combine(ToolsRoot, relPath);
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+
                     using var stream = asm.GetManifestResourceStream(logicalName);
                     if (stream == null)
                     {
@@ -51,16 +51,16 @@ namespace MKVenomTool
                         continue;
                     }
 
-                    string dest = Path.Combine(ToolsRoot, fileName);
-
-                    if (File.Exists(dest) && FileMd5(dest) == StreamMd5(stream))
+                    if (File.Exists(dst))
                     {
+                        var srcMd5 = StreamMd5(stream);
                         stream.Seek(0, SeekOrigin.Begin);
-                        continue;
+                        var dstMd5 = FileMd5(dst);
+                        if (string.Equals(srcMd5, dstMd5, StringComparison.OrdinalIgnoreCase))
+                            continue;
                     }
 
-                    stream.Seek(0, SeekOrigin.Begin);
-                    using var fs = File.Create(dest);
+                    using var fs = File.Create(dst);
                     stream.CopyTo(fs);
                 }
 
@@ -68,7 +68,7 @@ namespace MKVenomTool
             }
             catch (Exception ex)
             {
-                App.CrashLog("ToolsManager.EnsureExtracted", ex.Message);
+                App.CrashLog("ToolsManager.EnsureExtracted", ex.ToString());
             }
         }
 
@@ -78,7 +78,7 @@ namespace MKVenomTool
             try
             {
                 if (Directory.Exists(ToolsRoot))
-                    Directory.Delete(ToolsRoot, recursive: true);
+                    Directory.Delete(ToolsRoot, true);
             }
             catch (Exception ex)
             {
@@ -86,41 +86,31 @@ namespace MKVenomTool
             }
         }
 
-        public static bool Verify(out List<string> missing)
+        public static bool ExeExists(string folder, string exe)
         {
-            missing = new List<string>();
-            foreach (var fileName in _map.Values)
-            {
-                string path = Path.Combine(ToolsRoot, fileName);
-                if (!File.Exists(path))
-                    missing.Add(fileName);
-            }
-
-            return missing.Count == 0;
+            var p = GetExePath(folder, exe);
+            return File.Exists(p);
         }
 
-        public static string GetToolPath(string fileName)
-        {
-            string path = Path.Combine(ToolsRoot, fileName);
-            return File.Exists(path) ? path : fileName;
-        }
-
-        // Compatibility bridge for old callers (BackupService uses this)
         public static string GetExePath(string folder, string exe)
         {
-            var n = (exe ?? string.Empty).Trim().ToLowerInvariant();
+            var f = (folder ?? "").Trim().ToLowerInvariant();
+            var e = (exe ?? "").Trim().ToLowerInvariant();
 
-            return n switch
+            if (!e.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                !e.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
-                "adb" or "adb.exe" => AdbExe,
-                "fastboot" or "fastboot.exe" => FastbootExe,
-                "ekoflash" or "ekoflash.exe" => EkoFlashExe,
-                "zadig" or "zadig.exe" => ZadigExe,
-                _ => GetToolPath(exe)
+                e += ".exe";
+            }
+
+            return f switch
+            {
+                "platform-tools" => Path.Combine(ToolsRoot, "platform-tools", e),
+                "odin"           => Path.Combine(ToolsRoot, "odin", e),
+                "zadig"          => Path.Combine(ToolsRoot, "zadig", e),
+                _                => Path.Combine(ToolsRoot, e)
             };
         }
-
-        public static bool IsReady() => _extracted && Verify(out _);
 
         private static string FileMd5(string path)
         {
