@@ -21,12 +21,12 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install dependencies via vcpkg
+      - name: Install dependencies via vcpkg (Static)
         run: |
           vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
           vcpkg integrate install
 
-      - name: Generate main.cpp entry point
+      - name: Generate main.cpp
         shell: pwsh
         run: |
           if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
@@ -38,13 +38,13 @@ jobs:
           "@
           $mainContent | Set-Content "src\app\main.cpp" -Encoding UTF8
 
-      - name: Build ekoflash.exe (Static C++)
+      - name: Build ekoflash.exe (Static C++ Engine)
         shell: pwsh
         run: |
           $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
           $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
-          
-          # قائمة الملفات مأخوذة بدقة من كودك القديم الناجح
+
+          # قائمة الملفات "المجربة والناجحة" من كودك القديم
           $sources = @(
             "src\protocol\odin\flash.cpp",
             "src\protocol\odin\group_flasher.cpp",
@@ -92,13 +92,9 @@ jobs:
             "/D", "SPDLOG_FMT_EXTERNAL"
           )
 
+          # تم استخدام std:c++20 لتجنب تحذيرات c++latest
           $flags = @(
-            "/std:c++20", 
-            "/O2", 
-            "/MT", 
-            "/EHsc", 
-            "/utf-8", 
-            "/Zc:__cplusplus"
+            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus"
           )
 
           $linkerFlags = @(
@@ -107,7 +103,7 @@ jobs:
             "Ws2_32.lib", "SetupAPI.lib", "User32.lib", "Advapi32.lib", "fmt.lib"
           )
 
-          Write-Host "Compiling Engine using verified source list..."
+          Write-Host "Compiling Engine..."
           & cl.exe $flags $includes $defines $sources /Fe:ekoflash.exe $linkerFlags
 
       - name: Upload Engine Artifact
@@ -117,7 +113,7 @@ jobs:
           path: ekoflash.exe
 
   build-gui:
-    name: Build EKOFLASH GUI (.NET)
+    name: Build EKOFLASH GUI & Final Bundle
     needs: build-engine
     runs-on: windows-latest
     steps:
@@ -135,27 +131,25 @@ jobs:
           name: odin-engine
           path: .
 
-      - name: Verify Dependencies
+      - name: Verify and Publish
         shell: pwsh
         run: |
-          # التأكد من وجود كافة الملفات المطلوبة للدمج داخل الـ EXE الخاص بـ C#
-          $required = @("ekoflash.exe", "adb.exe", "fastboot.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libusb-1.0.dll", "zadig.exe")
-          foreach ($file in $required) {
-            if (Test-Path $file) { Write-Host "Verified: $file" -ForegroundColor Green }
-            else { Write-Warning "Missing: $file (Make sure it exists in root)" }
+          # التأكد من وجود ekoflash.exe في الجذر ليتم تضمينه في ملف الـ C# (كما في الصورة 42230)
+          if (Test-Path "ekoflash.exe") { 
+            Write-Host "Engine found, proceeding to .NET Build..." -ForegroundColor Green 
+          } else { 
+            Write-Error "ekoflash.exe is missing!"; exit 1 
           }
-
-      - name: Publish EKOFLASH PRO
-        shell: pwsh
-        run: |
-          # بناء مشروع الـ C# وتضمين الملفات
+          
+          # بناء مشروع الـ C# (EkoFlashTool.csproj)
           dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
 
-      - name: Rename Final Output
+      - name: Rename and Finalize
         shell: pwsh
         run: |
           if (Test-Path "./publish/EkoFlashTool.exe") {
             Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
+            Write-Host "Final Bundle Created: EKOFLASH_PRO_v3.0.exe" -ForegroundColor Green
           }
 
       - name: Upload Final Release
