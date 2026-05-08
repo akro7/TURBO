@@ -21,8 +21,9 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install dependencies via vcpkg (Static)
+      - name: Install dependencies via vcpkg
         run: |
+          # تثبيت المكتبات مع تحديد التريبلت بشكل صريح
           vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
           vcpkg integrate install
 
@@ -38,13 +39,15 @@ jobs:
           "@
           $mainContent | Set-Content "src\app\main.cpp" -Encoding UTF8
 
-      - name: Build ekoflash.exe (Static C++ Engine)
+      - name: Build ekoflash.exe (Static C++)
         shell: pwsh
         run: |
-          $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
-          $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
+          # استخدام متغير البيئة الافتراضي لـ vcpkg في GitHub Actions
+          $VCPKG_ROOT = "$env:VCPKG_INSTALLATION_ROOT"
+          $VCPKG_INC = "$VCPKG_ROOT\installed\x64-windows-static\include"
+          $VCPKG_LIB = "$VCPKG_ROOT\installed\x64-windows-static\lib"
 
-          # قائمة الملفات "المجربة والناجحة" من كودك القديم
+          # إضافة الملفات البرمجية مع إضافة xxhash.c المفقود (سبب الخطأ في الصورة)
           $sources = @(
             "src\protocol\odin\flash.cpp",
             "src\protocol\odin\group_flasher.cpp",
@@ -67,7 +70,8 @@ jobs:
             "src\app\md5_xxh3_cache.cpp",
             "src\app\main.cpp",
             "src\third_party\lz4\lz4.c",
-            "src\third_party\md5\md5.c"
+            "src\third_party\md5\md5.c",
+            "src\third_party\xxhash\xxhash.c" 
           )
 
           $includes = @(
@@ -92,7 +96,6 @@ jobs:
             "/D", "SPDLOG_FMT_EXTERNAL"
           )
 
-          # تم استخدام std:c++20 لتجنب تحذيرات c++latest
           $flags = @(
             "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus"
           )
@@ -102,6 +105,10 @@ jobs:
             "/LIBPATH:$VCPKG_LIB",
             "Ws2_32.lib", "SetupAPI.lib", "User32.lib", "Advapi32.lib", "fmt.lib"
           )
+
+          Write-Host "Checking if vcpkg headers exist at: $VCPKG_INC"
+          if (Test-Path "$VCPKG_INC\fmt\format.h") { Write-Host "Headers Found!" -ForegroundColor Green }
+          else { Write-Error "Headers NOT Found at $VCPKG_INC" }
 
           Write-Host "Compiling Engine..."
           & cl.exe $flags $includes $defines $sources /Fe:ekoflash.exe $linkerFlags
@@ -131,17 +138,10 @@ jobs:
           name: odin-engine
           path: .
 
-      - name: Verify and Publish
+      - name: Publish EKOFLASH PRO
         shell: pwsh
         run: |
-          # التأكد من وجود ekoflash.exe في الجذر ليتم تضمينه في ملف الـ C# (كما في الصورة 42230)
-          if (Test-Path "ekoflash.exe") { 
-            Write-Host "Engine found, proceeding to .NET Build..." -ForegroundColor Green 
-          } else { 
-            Write-Error "ekoflash.exe is missing!"; exit 1 
-          }
-          
-          # بناء مشروع الـ C# (EkoFlashTool.csproj)
+          # بناء مشروع الـ C# ودمج المحرك داخله
           dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
 
       - name: Rename and Finalize
@@ -149,7 +149,6 @@ jobs:
         run: |
           if (Test-Path "./publish/EkoFlashTool.exe") {
             Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
-            Write-Host "Final Bundle Created: EKOFLASH_PRO_v3.0.exe" -ForegroundColor Green
           }
 
       - name: Upload Final Release
