@@ -67,20 +67,17 @@ namespace MKVenomTool
 
         private void ApplyTheme(string theme)
         {
-            var T = new Dictionary<string, (Color Ac, Color AS, Color Bo, Color Pa, Color Su, Color Da)>
+            var t = theme switch
             {
-                ["Blue"]    =(Color.FromRgb(0x37,0xCF,0xFF),Color.FromArgb(0x7A,0x35,0xCF,0xFF),Color.FromArgb(0x4C,0x52,0xBF,0xFF),Color.FromArgb(0x3A,0x0D,0x1B,0x33),Color.FromArgb(0x5A,0x1C,0xE1,0x7A),Color.FromArgb(0x5A,0xFF,0x4C,0x78)),
-                ["Purple"]  =(Color.FromRgb(0xB6,0x7B,0xFF),Color.FromArgb(0x80,0xA1,0x4D,0xFF),Color.FromArgb(0x4C,0xB1,0x86,0xFF),Color.FromArgb(0x3A,0x17,0x12,0x3A),Color.FromArgb(0x5A,0x38,0xD9,0x9E),Color.FromArgb(0x5A,0xFF,0x5E,0x98)),
-                ["Emerald"] =(Color.FromRgb(0x43,0xF2,0xC2),Color.FromArgb(0x7A,0x16,0xC4,0x98),Color.FromArgb(0x4C,0x5F,0xE4,0xC2),Color.FromArgb(0x3A,0x0A,0x1C,0x1A),Color.FromArgb(0x5A,0x27,0xE8,0x9D),Color.FromArgb(0x5A,0xFF,0x6C,0x85)),
-                ["Crimson"] =(Color.FromRgb(0xFF,0x6D,0xA8),Color.FromArgb(0x7A,0xFF,0x5B,0x93),Color.FromArgb(0x4C,0xFF,0x91,0xC2),Color.FromArgb(0x3A,0x20,0x0E,0x24),Color.FromArgb(0x5A,0x38,0xE0,0x9A),Color.FromArgb(0x5A,0xFF,0x4A,0x72)),
-                ["Gold"]    =(Color.FromRgb(0xFF,0xB8,0x30),Color.FromArgb(0x7A,0xFF,0xA0,0x20),Color.FromArgb(0x55,0xFF,0xC0,0x50),Color.FromArgb(0x38,0x1E,0x14,0x05),Color.FromArgb(0x5A,0x1C,0E1,0x7A),Color.FromArgb(0x5A,0xFF,0x4C,0x78)),
+                "Purple" => (Color.FromRgb(0xB6, 0x7B, 0xFF), Color.FromArgb(0x7A, 0xA1, 0x4D, 0xFF)),
+                "Emerald" => (Color.FromRgb(0x43, 0xF2, 0xC2), Color.FromArgb(0x7A, 0x16, 0xC4, 0x98)),
+                "Crimson" => (Color.FromRgb(0xFF, 0x6D, 0xA8), Color.FromArgb(0x7A, 0xFF, 0x5B, 0x93)),
+                "Gold" => (Color.FromRgb(0xFF, 0xB8, 0x30), Color.FromArgb(0x7A, 0xFF, 0xA0, 0x20)),
+                _ => (Color.FromRgb(0x37, 0xCF, 0xFF), Color.FromArgb(0x7A, 0x35, 0xCF, 0xFF))
             };
-            if (!T.TryGetValue(theme, out var t)) return;
 
-            Resources["Accent"] = new SolidColorBrush(t.Ac);
-            Resources["Accent2"] = new SolidColorBrush(t.AS);
-            Resources["PanelBorder"] = new SolidColorBrush(t.Bo);
-            Resources["PanelBg"] = new SolidColorBrush(t.Pa);
+            Resources["Accent"] = new SolidColorBrush(t.Item1);
+            Resources["Accent2"] = new SolidColorBrush(t.Item2);
         }
 
         private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
@@ -131,7 +128,6 @@ namespace MKVenomTool
                 _odinRows.Add(new FlashRow { Key = s, Label = s });
         }
 
-        // XAML handlers
         private void FbBrowse_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string key) return;
@@ -337,7 +333,6 @@ namespace MKVenomTool
             AppendLog(r.Code == 0 ? "Sideload complete ✓" : "Sideload FAILED.");
         }
 
-        // Tools panel handlers in XAML
         private async void CmdRebootSys_Click(object sender, RoutedEventArgs e)
         {
             var r = await RunProcessAsync(ToolsManager.AdbExe, "reboot", 15000);
@@ -384,7 +379,6 @@ namespace MKVenomTool
             }
         }
 
-        // Backup handlers (if backup panel exists)
         private async void LoadApps_Click(object sender, RoutedEventArgs e)
         {
             _backupApps.Clear();
