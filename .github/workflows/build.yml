@@ -1,4 +1,4 @@
-name: Build EKOFLASH EXE
+name: Build EKOFLASH TURBO (Unified)
 
 on:
   push:
@@ -12,46 +12,34 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # ──────────────────────────────────────────────────────────────
-      # 1. Checkout
-      # ──────────────────────────────────────────────────────────────
-      - name: Check Out Repository
+      # ─── 1. Checkout ───────────────────────────────────────────────
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ──────────────────────────────────────────────────────────────
-      # 2. MSVC toolchain
-      # ──────────────────────────────────────────────────────────────
+      # ─── 2. MSVC toolchain ─────────────────────────────────────────
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Setup MSVC Developer Command Prompt
+      - name: Setup MSVC Dev Prompt (x64)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      # ──────────────────────────────────────────────────────────────
-      # 3. vcpkg – static deps
-      # ──────────────────────────────────────────────────────────────
-      - name: Install dependencies via vcpkg (Static x64)
+      # ─── 3. vcpkg deps ─────────────────────────────────────────────
+      - name: Install vcpkg dependencies
         shell: pwsh
         run: |
           vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
           vcpkg integrate install
 
-      # ──────────────────────────────────────────────────────────────
-      # 4. Generate main.cpp entry point
-      # ──────────────────────────────────────────────────────────────
-      - name: Generate main.cpp entry point
+      # ─── 4. Generate main.cpp ──────────────────────────────────────
+      - name: Generate main.cpp
         shell: pwsh
         run: |
-          if (!(Test-Path "src\app")) {
-            New-Item -ItemType Directory -Force -Path "src\app" | Out-Null
-          }
-
+          New-Item -ItemType Directory -Force -Path "src\app" | Out-Null
           $main = @"
           // Auto-generated entry point
           #include "cli_mode.hpp"
-
           int main(int argc, char* argv[]) {
               return brokkr::app::run_cli(argc, argv);
           }
@@ -59,30 +47,23 @@ jobs:
           Set-Content "src\app\main.cpp" $main -Encoding UTF8
           Write-Host "main.cpp generated OK"
 
-      # ──────────────────────────────────────────────────────────────
-      # 5. Build ekoflash.exe  (MSVC – fully static /MT)
-      # ──────────────────────────────────────────────────────────────
+      # ─── 5. Build ekoflash.exe (C++ / MSVC) ───────────────────────
       - name: Build ekoflash.exe
         shell: pwsh
         run: |
           $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
           $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
 
-          # ── Source files ───────────────────────────────────────────
           $sources = @(
-            # Protocol / Odin
             "src\protocol\odin\flash.cpp",
             "src\protocol\odin\group_flasher.cpp",
             "src\protocol\odin\odin_cmd.cpp",
             "src\protocol\odin\pit.cpp",
             "src\protocol\odin\pit_transfer.cpp",
-            # Core
             "src\core\thread_pool.cpp",
-            # IO
             "src\io\lz4_frame.cpp",
             "src\io\source.cpp",
             "src\io\tar.cpp",
-            # Platform – Windows
             "src\platform\windows\app_dirs.cpp",
             "src\platform\windows\signal_shield.cpp",
             "src\platform\windows\single_instance.cpp",
@@ -90,134 +71,126 @@ jobs:
             "src\platform\windows\tcp_transport.cpp",
             "src\platform\windows\usbfs_conn.cpp",
             "src\platform\windows\usbfs_device.cpp",
-            # App layer
             "src\app\cli_mode.cpp",
             "src\app\md5_verify.cpp",
             "src\app\md5_xxh3_cache.cpp",
             "src\app\main.cpp",
-            # Third-party (C files compiled as C++)
             "src\third_party\lz4\lz4.c",
             "src\third_party\md5\md5.c"
           )
 
-          # ── Include paths ──────────────────────────────────────────
           $includes = @(
-            "/I src",
-            "/I src\core",
-            "/I src\io",
-            "/I src\app",
-            "/I src\platform\windows",
-            "/I src\platform\posix-common",
-            "/I src\protocol\odin",
-            "/I src\third_party\lz4",
-            "/I src\third_party\md5",
-            "/I src\third_party\xxhash",
+            "/I src", "/I src\core", "/I src\io", "/I src\app",
+            "/I src\platform\windows", "/I src\platform\posix-common",
+            "/I src\protocol\odin", "/I src\third_party\lz4",
+            "/I src\third_party\md5", "/I src\third_party\xxhash",
             "/I `"$VCPKG_INC`""
           )
 
-          # ── Preprocessor defines ───────────────────────────────────
           $defines = @(
-            "/D BROKKR_PLATFORM_WINDOWS",
-            "/D WIN32_LEAN_AND_MEAN",
-            "/D NOMINMAX",
-            "/D _WIN32_WINNT=0x0A00",
-            "/D SPDLOG_FMT_EXTERNAL",
-            "/D _CRT_SECURE_NO_WARNINGS"
+            "/D BROKKR_PLATFORM_WINDOWS", "/D WIN32_LEAN_AND_MEAN",
+            "/D NOMINMAX", "/D _WIN32_WINNT=0x0A00",
+            "/D SPDLOG_FMT_EXTERNAL", "/D _CRT_SECURE_NO_WARNINGS"
           )
 
-          # ── Compiler flags ─────────────────────────────────────────
-          $flags = @(
-            "/std:c++latest",
-            "/O2",
-            "/MT",           # static CRT – no DLL dependency
-            "/EHsc",
-            "/utf-8",
-            "/Zc:__cplusplus",
-            "/W3",
-            "/WX-",          # warnings are not errors
-            "/permissive-"
-          )
+          $flags   = @("/std:c++latest","/O2","/MT","/EHsc","/utf-8","/Zc:__cplusplus","/W3","/WX-","/permissive-")
+          $libs    = @("Ws2_32.lib","SetupAPI.lib","User32.lib","Advapi32.lib","Hid.lib","fmt.lib")
 
-          # ── Link libraries ─────────────────────────────────────────
-          $linkLibs = @(
-            "Ws2_32.lib",
-            "SetupAPI.lib",
-            "User32.lib",
-            "Advapi32.lib",
-            "Hid.lib",
-            "fmt.lib"
-          )
+          $cmd = "cl.exe $($flags -join ' ') $($includes -join ' ') $($defines -join ' ') " +
+                 "$($sources | ForEach-Object { "`"$_`"" } | Join-String -Separator ' ') " +
+                 "/Fe:ekoflash.exe /link /LIBPATH:`"$VCPKG_LIB`" $($libs -join ' ')"
 
-          # ── Assemble & run cl.exe command ──────────────────────────
-          $srcList    = ($sources  | ForEach-Object { "`"$_`"" }) -join " "
-          $inclList   = $includes  -join " "
-          $defineList = $defines   -join " "
-          $flagList   = $flags     -join " "
-          $libList    = $linkLibs  -join " "
-          $libPath    = "/LIBPATH:`"$VCPKG_LIB`""
-
-          $cmd = "cl.exe $flagList $inclList $defineList $srcList" +
-                 " /Fe:ekoflash.exe" +
-                 " /link $libPath $libList"
-
-          Write-Host "=== Compiler command ==="
-          Write-Host $cmd
-          Write-Host "========================"
-
+          Write-Host "=== Building C++ backend ==="
           Invoke-Expression $cmd
 
           if (-not (Test-Path "ekoflash.exe")) {
             Write-Error "BUILD FAILED: ekoflash.exe not produced"
             exit 1
           }
+          Write-Host "ekoflash.exe built OK"
 
-          $size = (Get-Item "ekoflash.exe").Length / 1MB
-          Write-Host ("ekoflash.exe built OK  [{0:N2} MB]" -f $size)
-
-      # ──────────────────────────────────────────────────────────────
-      # 6. Verify bundled assets
-      # ──────────────────────────────────────────────────────────────
-      - name: Verify required assets
+      # ─── 6. Inject ekoflash.exe into .csproj as EmbeddedResource ──
+      - name: Patch .csproj – embed ekoflash.exe + tools
         shell: pwsh
         run: |
-          $required = @(
+          $csproj = "EkoFlashTool.csproj"
+          [xml]$xml = Get-Content $csproj
+
+          $ns = "http://schemas.microsoft.com/developer/msbuild/2003"
+
+          # Files to embed
+          $tools = @(
             "ekoflash.exe",
             "fastboot.exe",
             "adb.exe",
             "AdbWinApi.dll",
             "AdbWinUsbApi.dll",
             "libusb-1.0.dll",
-            "zadig.exe",
-            "THIRD_PARTY_NOTICES.txt",
-            "LICENSE",
-            "icon.ico"
+            "zadig.exe"
           )
-          $missing = @()
-          foreach ($f in $required) {
-            if (Test-Path $f) { Write-Host "OK : $f" }
-            else              { Write-Warning "MISSING: $f"; $missing += $f }
+
+          # Find or create ItemGroup for EmbeddedResource
+          $ig = $xml.Project.ItemGroup | Where-Object {
+            $_.ChildNodes | Where-Object { $_.LocalName -eq "EmbeddedResource" }
+          } | Select-Object -First 1
+
+          if (-not $ig) {
+            $ig = $xml.CreateElement("ItemGroup", $ns)
+            $xml.Project.AppendChild($ig) | Out-Null
           }
-          if ($missing.Count -gt 0) {
-            Write-Error "Missing files: $($missing -join ', ')"
+
+          foreach ($tool in $tools) {
+            # Skip if already present
+            $exists = $ig.ChildNodes | Where-Object {
+              $_.LocalName -eq "EmbeddedResource" -and $_.GetAttribute("Include") -eq $tool
+            }
+            if ($exists) { continue }
+
+            $er = $xml.CreateElement("EmbeddedResource", $ns)
+            $er.SetAttribute("Include", $tool)
+            $ig.AppendChild($er) | Out-Null
+            Write-Host "Embedded: $tool"
+          }
+
+          $xml.Save((Resolve-Path $csproj))
+          Write-Host ".csproj patched OK"
+
+      # ─── 7. Setup .NET ─────────────────────────────────────────────
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # ─── 8. Build WPF app (single-file, self-contained) ────────────
+      - name: Build WPF app
+        shell: pwsh
+        run: |
+          dotnet publish EkoFlashTool.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:PublishReadyToRun=false `
+            -p:EnableCompressionInSingleFile=true `
+            -o publish_out
+
+          if (-not (Test-Path "publish_out\EkoFlashTool.exe")) {
+            Write-Error "WPF build FAILED"
             exit 1
           }
-          Write-Host "All assets present"
 
-      # ──────────────────────────────────────────────────────────────
-      # 7. Upload artifact
-      # ──────────────────────────────────────────────────────────────
-      - name: Upload ekoflash artifact
+          # Rename final output
+          Rename-Item "publish_out\EkoFlashTool.exe" "EKOFLASH_TURBO.exe"
+          Write-Host "EKOFLASH_TURBO.exe built OK"
+
+      # ─── 9. Upload artifact ────────────────────────────────────────
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: EKOFLASH_TURBO
           path: |
-            ekoflash.exe
-            fastboot.exe
-            adb.exe
-            AdbWinApi.dll
-            AdbWinUsbApi.dll
-            libusb-1.0.dll
-            zadig.exe
+            publish_out\EKOFLASH_TURBO.exe
             THIRD_PARTY_NOTICES.txt
             LICENSE
           retention-days: 30
