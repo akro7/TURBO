@@ -23,7 +23,12 @@ jobs:
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
-      # ── Install Qt using a more reliable method ──
+      # حل مشكلة Python + Qt
+      - name: Setup Python for Qt
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install Qt 6.7
         uses: jurplel/install-qt-action@v4
         with:
@@ -34,29 +39,33 @@ jobs:
           modules: 'qtbase qttools qt5compat'
           cache: true
           setup-python: false
+          dir: '${{ github.workspace }}/Qt'
 
       - name: Build with CMake
         shell: pwsh
         run: |
+          \( QtDir = " \){{ github.workspace }}/Qt/6.7*/msvc2019_64"
+          
           cmake -B build -S . `
             -DCMAKE_BUILD_TYPE=Release `
             -G "Visual Studio 17 2022" `
             -A x64 `
-            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
-            -DQt6_DIR="$env:Qt6_DIR/lib/cmake/Qt6"
+            -DCMAKE_PREFIX_PATH="$QtDir" `
+            -DQt6_DIR="$QtDir/lib/cmake/Qt6"
 
-          cmake --build build --config Release -j 4 --verbose
+          cmake --build build --config Release --verbose -j 4
 
-      - name: Upload Executable
+      - name: Find Executable
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Path "build" -Recurse -Filter "brokkr.exe" -ErrorAction SilentlyContinue
+          $exe = Get-ChildItem -Path "build" -Recurse -Filter "brokkr.exe" | Select-Object -First 1
           if ($exe) {
             Copy-Item $exe.FullName -Destination "TURBO_FLASH_TOOL.exe"
-            Write-Host "✅ Found: $($exe.FullName)"
+            Write-Host "✅ Success: TURBO_FLASH_TOOL.exe created"
           } else {
-            Write-Warning "EXE not found, checking for any .exe"
+            Write-Host "Searching for any executable..."
             Get-ChildItem -Path "build" -Recurse -Filter "*.exe" | Select-Object FullName
+            throw "Executable not found!"
           }
 
       - name: Upload Artifact
