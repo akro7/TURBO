@@ -41,31 +41,50 @@ jobs:
       - name: Build ekoflash.exe (Static C++)
         shell: pwsh
         run: |
-          $INC_VCPKG = "C:\vcpkg\installed\x64-windows-static\include"
-          $LIB_VCPKG = "C:\vcpkg\installed\x64-windows-static\lib"
+          $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
+          $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
           
-          # تجميع كافة ملفات المصدر في مصفوفة (Array) لضمان تمريرها بشكل صحيح
-          $srcFiles = @()
-          $srcFiles += Get-ChildItem -Path "src\protocol\odin\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem -Path "src\core\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem -Path "src\io\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem -Path "src\platform\windows\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem -Path "src\app\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem -Path "src\third_party\lz4\*.c" | % { $_.FullName }
-          $srcFiles += Get-ChildItem -Path "src\third_party\md5\*.c" | % { $_.FullName }
+          # قائمة الملفات مأخوذة بدقة من كودك القديم الناجح
+          $sources = @(
+            "src\protocol\odin\flash.cpp",
+            "src\protocol\odin\group_flasher.cpp",
+            "src\protocol\odin\odin_cmd.cpp",
+            "src\protocol\odin\pit.cpp",
+            "src\protocol\odin\pit_transfer.cpp",
+            "src\core\thread_pool.cpp",
+            "src\io\lz4_frame.cpp",
+            "src\io\source.cpp",
+            "src\io\tar.cpp",
+            "src\platform\windows\app_dirs.cpp",
+            "src\platform\windows\signal_shield.cpp",
+            "src\platform\windows\single_instance.cpp",
+            "src\platform\windows\sysfs_usb.cpp",
+            "src\platform\windows\tcp_transport.cpp",
+            "src\platform\windows\usbfs_conn.cpp",
+            "src\platform\windows\usbfs_device.cpp",
+            "src\app\cli_mode.cpp",
+            "src\app\md5_verify.cpp",
+            "src\app\md5_xxh3_cache.cpp",
+            "src\app\main.cpp",
+            "src\third_party\lz4\lz4.c",
+            "src\third_party\md5\md5.c"
+          )
 
-          # الأعلام والمسارات كمصفوفة لمنع خطأ D9002
-          $compilerFlags = @(
-            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus",
+          $includes = @(
             "/I", "src",
             "/I", "src\core",
             "/I", "src\io",
             "/I", "src\platform\windows",
+            "/I", "src\platform\posix-common",
             "/I", "src\protocol\odin",
             "/I", "src\app",
             "/I", "src\third_party\lz4",
             "/I", "src\third_party\md5",
-            "/I", "$INC_VCPKG",
+            "/I", "src\third_party\xxhash",
+            "/I", "$VCPKG_INC"
+          )
+
+          $defines = @(
             "/D", "BROKKR_PLATFORM_WINDOWS",
             "/D", "WIN32_LEAN_AND_MEAN",
             "/D", "NOMINMAX",
@@ -73,15 +92,23 @@ jobs:
             "/D", "SPDLOG_FMT_EXTERNAL"
           )
 
+          $flags = @(
+            "/std:c++20", 
+            "/O2", 
+            "/MT", 
+            "/EHsc", 
+            "/utf-8", 
+            "/Zc:__cplusplus"
+          )
+
           $linkerFlags = @(
             "/link",
-            "/LIBPATH:$LIB_VCPKG",
+            "/LIBPATH:$VCPKG_LIB",
             "Ws2_32.lib", "SetupAPI.lib", "User32.lib", "Advapi32.lib", "fmt.lib"
           )
 
-          Write-Host "Compiling Engine..."
-          # استخدام عامل التشغيل & مع المصفوفات يضمن تمرير كل عنصر كـ Argument منفصل
-          & cl.exe $compilerFlags $srcFiles /Fe:ekoflash.exe $linkerFlags
+          Write-Host "Compiling Engine using verified source list..."
+          & cl.exe $flags $includes $defines $sources /Fe:ekoflash.exe $linkerFlags
 
       - name: Upload Engine Artifact
         uses: actions/upload-artifact@v4
@@ -90,7 +117,7 @@ jobs:
           path: ekoflash.exe
 
   build-gui:
-    name: Build EKOFLASH GUI & Final Bundle
+    name: Build EKOFLASH GUI (.NET)
     needs: build-engine
     runs-on: windows-latest
     steps:
@@ -108,10 +135,20 @@ jobs:
           name: odin-engine
           path: .
 
+      - name: Verify Dependencies
+        shell: pwsh
+        run: |
+          # التأكد من وجود كافة الملفات المطلوبة للدمج داخل الـ EXE الخاص بـ C#
+          $required = @("ekoflash.exe", "adb.exe", "fastboot.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libusb-1.0.dll", "zadig.exe")
+          foreach ($file in $required) {
+            if (Test-Path $file) { Write-Host "Verified: $file" -ForegroundColor Green }
+            else { Write-Warning "Missing: $file (Make sure it exists in root)" }
+          }
+
       - name: Publish EKOFLASH PRO
         shell: pwsh
         run: |
-          # التأكد من وجود ملف المشروع بناءً على الصورة 42231
+          # بناء مشروع الـ C# وتضمين الملفات
           dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
 
       - name: Rename Final Output
@@ -124,5 +161,5 @@ jobs:
       - name: Upload Final Release
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_TURBO_RELEASE
+          name: EKOFLASH_PRO_BUNDLE
           path: ./publish/EKOFLASH_PRO_v3.0.exe
