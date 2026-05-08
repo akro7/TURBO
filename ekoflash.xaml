@@ -342,7 +342,7 @@
                                     </ItemsControl>
                                 </ScrollViewer>
 
-                                <Grid Grid.Row="2" Background="{StaticResource BgRowA}" Margin="0,8,0,0" Padding="0,5">
+                                <Grid Grid.Row="2" Background="{StaticResource BgPanel}" Margin="0,8,0,0" Padding="0,5">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="30"/>
                                         <ColumnDefinition Width="70"/>
