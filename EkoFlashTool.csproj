@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>EkoFlashTool</AssemblyName>
+    <RootNamespace>MKVenomTool</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="app.ico" />
+    <None Update="app.ico">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="adb.exe" LogicalName="MKVenomTool.Resources.adb.exe" />
+    <EmbeddedResource Include="fastboot.exe" LogicalName="MKVenomTool.Resources.fastboot.exe" />
+    <EmbeddedResource Include="AdbWinApi.dll" LogicalName="MKVenomTool.Resources.AdbWinApi.dll" />
+    <EmbeddedResource Include="AdbWinUsbApi.dll" LogicalName="MKVenomTool.Resources.AdbWinUsbApi.dll" />
+    <EmbeddedResource Include="libusb-1.0.dll" LogicalName="MKVenomTool.Resources.libusb-1.0.dll" />
+    <EmbeddedResource Include="zadig.exe" LogicalName="MKVenomTool.Resources.zadig.exe" />
+  </ItemGroup>
+
+</Project>
