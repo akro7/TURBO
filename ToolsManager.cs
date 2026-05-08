@@ -15,17 +15,16 @@ namespace MKVenomTool
 
         private static bool _extracted;
 
-        // Key   = Logical resource name (AssemblyName.Folder.FileName)
-        // Value = Output file name on disk
+        // Embedded resources map
         private static readonly Dictionary<string, string> _map = new()
         {
-            ["EkoFlashTool.Resources.ekoflash.exe"]      = "ekoflash.exe",
-            ["EkoFlashTool.Resources.adb.exe"]           = "adb.exe",
-            ["EkoFlashTool.Resources.fastboot.exe"]      = "fastboot.exe",
-            ["EkoFlashTool.Resources.AdbWinApi.dll"]     = "AdbWinApi.dll",
-            ["EkoFlashTool.Resources.AdbWinUsbApi.dll"]  = "AdbWinUsbApi.dll",
-            ["EkoFlashTool.Resources.libusb-1.0.dll"]    = "libusb-1.0.dll",
-            ["EkoFlashTool.Resources.zadig.exe"]         = "zadig.exe"
+            ["EkoFlashTool.Resources.ekoflash.exe"]     = "ekoflash.exe",
+            ["EkoFlashTool.Resources.adb.exe"]          = "adb.exe",
+            ["EkoFlashTool.Resources.fastboot.exe"]     = "fastboot.exe",
+            ["EkoFlashTool.Resources.AdbWinApi.dll"]    = "AdbWinApi.dll",
+            ["EkoFlashTool.Resources.AdbWinUsbApi.dll"] = "AdbWinUsbApi.dll",
+            ["EkoFlashTool.Resources.libusb-1.0.dll"]   = "libusb-1.0.dll",
+            ["EkoFlashTool.Resources.zadig.exe"]        = "zadig.exe"
         };
 
         public static string EkoFlashExe => GetToolPath("ekoflash.exe");
@@ -106,7 +105,7 @@ namespace MKVenomTool
             return File.Exists(path) ? path : fileName;
         }
 
-        // Compatibility bridge: old code still calls GetExePath(folder, exe)
+        // Compatibility bridge for old callers (BackupService uses this)
         public static string GetExePath(string folder, string exe)
         {
             var n = (exe ?? string.Empty).Trim().ToLowerInvariant();
