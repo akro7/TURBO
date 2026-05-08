@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -7,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
+    <!-- مهم: خليه EkoFlashTool عشان الـ workflow الحالي -->
     <AssemblyName>EkoFlashTool</AssemblyName>
     <RootNamespace>MKVenomTool</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
@@ -26,28 +26,36 @@
     <Resource Include="app.ico" />
   </ItemGroup>
 
+  <!-- platform-tools -->
   <ItemGroup>
-    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')">
-      <LogicalName>EkoFlashTool.Resources.ekoflash.exe</LogicalName>
-    </EmbeddedResource>
     <EmbeddedResource Include="adb.exe" Condition="Exists('adb.exe')">
-      <LogicalName>EkoFlashTool.Resources.adb.exe</LogicalName>
+      <LogicalName>res.pt.adb.exe</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="fastboot.exe" Condition="Exists('fastboot.exe')">
-      <LogicalName>EkoFlashTool.Resources.fastboot.exe</LogicalName>
+      <LogicalName>res.pt.fastboot.exe</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="AdbWinApi.dll" Condition="Exists('AdbWinApi.dll')">
-      <LogicalName>EkoFlashTool.Resources.AdbWinApi.dll</LogicalName>
+      <LogicalName>res.pt.AdbWinApi.dll</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="AdbWinUsbApi.dll" Condition="Exists('AdbWinUsbApi.dll')">
-      <LogicalName>EkoFlashTool.Resources.AdbWinUsbApi.dll</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')">
-      <LogicalName>EkoFlashTool.Resources.libusb-1.0.dll</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')">
-      <LogicalName>EkoFlashTool.Resources.zadig.exe</LogicalName>
+      <LogicalName>res.pt.AdbWinUsbApi.dll</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 
+  <!-- Odin engine (ekoflash) -->
+  <ItemGroup>
+    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')">
+      <LogicalName>res.ok.ekoflash.exe</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')">
+      <LogicalName>res.ok.libusb.dll</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- Zadig -->
+  <ItemGroup>
+    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')">
+      <LogicalName>res.zd.zadig.exe</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>
