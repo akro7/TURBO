@@ -29,13 +29,17 @@ jobs:
       - name: Patch Log Headers (Fix C2039/C2065)
         shell: pwsh
         run: |
-          # هذا السطر يحل مشكلة fmt::vformat عبر التأكد من تضمين Header المكتبة بشكل صحيح في ملفات اللوج
-          $logFiles = Get-ChildItem -Path "src\core\log.hpp", "src\app\cli_mode.hpp" -ErrorAction SilentlyContinue
-          foreach ($file in $logFiles) {
-            $content = Get-Content $file.FullName
-            if ($content -notcontains '#include <fmt/format.h>') {
-              "#include <fmt/format.h>`n" + $content | Set-Content $file.FullName
-              Write-Host "Patched: $($file.Name)" -ForegroundColor Cyan
+          # إصلاح شامل لملفات الهيدر لضمان توافق مكتبة fmt الحديثة
+          $filesToPatch = @("src\core\log.hpp", "src\app\cli_mode.hpp", "src\protocol\odin\odin_cmd.cpp")
+          foreach ($file in $filesToPatch) {
+            if (Test-Path $file) {
+              $content = Get-Content $file -Raw
+              if ($content -notmatch "fmt/format.h") {
+                # إضافة التضمينات الضرورية في بداية الملف
+                $newHeader = "#include <fmt/core.h>`n#include <fmt/format.h>`n"
+                $newHeader + $content | Set-Content $file -Encoding UTF8
+                Write-Host "Successfully patched: $file" -ForegroundColor Green
+              }
             }
           }
 
@@ -104,10 +108,9 @@ jobs:
             "/D", "NOMINMAX",
             "/D", "_WIN32_WINNT=0x0A00",
             "/D", "SPDLOG_FMT_EXTERNAL",
-            "/D", "FMT_HEADER_ONLY=0" # نحدد أننا نستخدم المكتبة كـ Compiled Lib
+            "/D", "FMT_HEADER_ONLY=0"
           )
 
-          # تم استخدام /std:c++20 و /permissive- لتحسين التوافق مع المكتبات الحديثة
           $flags = @(
             "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus", "/permissive-"
           )
@@ -148,7 +151,7 @@ jobs:
       - name: Publish EKOFLASH PRO
         shell: pwsh
         run: |
-          # التأكد من وجود ملف المشروع EkoFlashTool.csproj في مساره
+          # بناء الـ GUI وتضمين ملفات الـ EXE
           dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
 
       - name: Rename and Finalize
@@ -159,7 +162,7 @@ jobs:
           }
 
       - name: Upload Final Release
-        uses: actions/artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: EKOFLASH_PRO_BUNDLE
           path: ./publish/EKOFLASH_PRO_v3.0.exe
