@@ -517,111 +517,120 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Text="ODIN OPTIONS" FontSize="13" FontWeight="Bold"
                                            Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,10"/>
-                                <StackPanel Grid.Row="1" Margin="4,0,0,0">
-                                    <CheckBox x:Name="OptAutoReboot" Style="{StaticResource OdinCheck}" Content="Auto Reboot" IsChecked="True"/>
-                                    <CheckBox x:Name="OptNandErase" Style="{StaticResource OdinCheck}" Content="Nand Erase"/>
-                                    <CheckBox x:Name="OptRePartition" Style="{StaticResource OdinCheck}" Content="Re-Partition"/>
-                                    <CheckBox x:Name="OptFResetTime" Style="{StaticResource OdinCheck}" Content="F. Reset Time" IsChecked="True"/>
-                                    <CheckBox x:Name="OptDeviceInfo" Style="{StaticResource OdinCheck}" Content="Device Info"/>
-                                    <CheckBox x:Name="OptFlashLock" Style="{StaticResource OdinCheck}" Content="Flash Lock"/>
-                                    <CheckBox x:Name="OptDecompressData" Style="{StaticResource OdinCheck}" Content="Decompress Data"/>
-                                    <Separator Margin="0,8,0,8" Background="#33FFFFFF"/>
-                                    <TextBlock Text="NOTE" FontSize="10" FontWeight="Bold" Foreground="#FFB830" Margin="0,0,0,4"/>
-                                    <TextBlock TextWrapping="Wrap" FontSize="10" Foreground="#8AACCF"
-                                               Text="Options are applied to ekoflash commands where supported."/>
-                                    <Separator Margin="0,8,0,8" Background="#33FFFFFF"/>
-                                  ```xml
-<TextBlock Text="ZADIG HELP" FontSize="10" FontWeight="Bold" Foreground="#FFB830" Margin="0,0,0,4"/>
+                               ```xml
+<Separator Margin="0,8,0,8" Background="#33FFFFFF"/>
 
-<TextBlock
-    TextWrapping="Wrap"
-    FontSize="10"
-    Foreground="#8AACCF"
-    Text="If Odin mode does not detect the device, install Samsung USB drivers or use Zadig to switch the device interface to WinUSB."/>
+<TextBlock Text="NOTE"
+           FontSize="10"
+           FontWeight="Bold"
+           Foreground="#FFB830"
+           Margin="0,0,0,4"/>
 
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-                    </Border>
-                </Grid>
+<TextBlock TextWrapping="Wrap"
+           FontSize="10"
+           Foreground="#8AACCF"
+           Text="Options are applied to ekoflash commands where supported."/>
 
-                <Grid Grid.Row="3" Margin="4,10,4,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+<Separator Margin="0,8,0,8" Background="#33FFFFFF"/>
 
-                    <ProgressBar x:Name="MainProgress"
-                                 Height="18"
-                                 Minimum="0"
-                                 Maximum="100"
-                                 Value="0"
-                                 Foreground="{DynamicResource AccentBrush}"
-                                 Background="#1E2238"
-                                 BorderBrush="{DynamicResource BorderBrush}"
-                                 BorderThickness="1"/>
+<TextBlock Text="ZADIG HELP"
+           FontSize="10"
+           FontWeight="Bold"
+           Foreground="#FFB830"
+           Margin="0,0,0,4"/>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
-                        <Button x:Name="FlashAllBtn"
-                                Width="130"
-                                Height="36"
-                                Margin="0,0,8,0"
-                                Content="FLASH ALL"
-                                Background="{DynamicResource AccentSoftBrush}"
-                                BorderBrush="{DynamicResource AccentBrush}"
-                                Foreground="#F3FBFF"
-                                Style="{StaticResource ActionButton}"
-                                Click="FlashAll_Click"/>
+<TextBlock TextWrapping="Wrap"
+           FontSize="10"
+           Foreground="#8AACCF"
+           Text="If Odin mode does not detect the device, install Samsung USB drivers or use Zadig to switch the device interface to WinUSB."/>
 
-                        <Button x:Name="CancelBtn"
-                                Width="95"
-                                Height="36"
-                                Content="CANCEL"
-                                Background="#442233"
-                                BorderBrush="#AA5577"
-                                Foreground="#FFE5EE"
-                                Style="{StaticResource ActionButton}"
-                                Click="Cancel_Click"/>
-                    </StackPanel>
-                </Grid>
+</StackPanel>
+</Grid>
+</Grid>
+</Border>
+</Grid>
 
-                <Border Grid.Row="4"
-                        Margin="4,0,4,0"
-                        Background="#180F1F35"
-                        BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="10"
-                        Padding="8">
+<Grid Grid.Row="3" Margin="4,10,4,10">
+    <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
 
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
+    <ProgressBar x:Name="MainProgress"
+                 Height="18"
+                 Minimum="0"
+                 Maximum="100"
+                 Value="0"
+                 Foreground="{DynamicResource AccentBrush}"
+                 Background="#1E2238"
+                 BorderBrush="{DynamicResource BorderBrush}"
+                 BorderThickness="1"/>
 
-                        <TextBlock Text="LOG OUTPUT"
-                                   FontSize="13"
-                                   FontWeight="Bold"
-                                   Foreground="{DynamicResource AccentBrush}"
-                                   Margin="0,0,0,6"/>
+    <StackPanel Grid.Column="1"
+                Orientation="Horizontal"
+                Margin="12,0,0,0">
 
-                        <TextBox x:Name="LogBox"
-                                 Grid.Row="1"
-                                 IsReadOnly="True"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto"
-                                 HorizontalScrollBarVisibility="Auto"
-                                 Background="#101826"
-                                 Foreground="#D7F1FF"
-                                 BorderThickness="0"
-                                 FontFamily="Consolas"
-                                 FontSize="11"
-                                 Padding="8"/>
-                    </Grid>
-                </Border>
-            </Grid>
-        </Border>
+        <Button x:Name="FlashAllBtn"
+                Width="130"
+                Height="36"
+                Margin="0,0,8,0"
+                Content="FLASH ALL"
+                Background="{DynamicResource AccentSoftBrush}"
+                BorderBrush="{DynamicResource AccentBrush}"
+                Foreground="#F3FBFF"
+                Style="{StaticResource ActionButton}"
+                Click="FlashAll_Click"/>
+
+        <Button x:Name="CancelBtn"
+                Width="95"
+                Height="36"
+                Content="CANCEL"
+                Background="#442233"
+                BorderBrush="#AA5577"
+                Foreground="#FFE5EE"
+                Style="{StaticResource ActionButton}"
+                Click="Cancel_Click"/>
+    </StackPanel>
+</Grid>
+
+<Border Grid.Row="4"
+        Margin="4,0,4,0"
+        Background="#180F1F35"
+        BorderBrush="{DynamicResource BorderBrush}"
+        BorderThickness="1"
+        CornerRadius="10"
+        Padding="8">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="LOG OUTPUT"
+                   FontSize="13"
+                   FontWeight="Bold"
+                   Foreground="{DynamicResource AccentBrush}"
+                   Margin="0,0,0,6"/>
+
+        <TextBox x:Name="LogBox"
+                 Grid.Row="1"
+                 IsReadOnly="True"
+                 AcceptsReturn="True"
+                 TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 Background="#101826"
+                 Foreground="#D7F1FF"
+                 BorderThickness="0"
+                 FontFamily="Consolas"
+                 FontSize="11"
+                 Padding="8"/>
     </Grid>
+</Border>
+
+</Grid>
+</Border>
+</Grid>
 </Window>
 ```
