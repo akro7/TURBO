@@ -1,4 +1,26 @@
-- name: Build C++ Engine (TURBO_FLASH_TOOL.exe)
+name: Build C++ Engine (TURBO_FLASH_TOOL)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:     # ← ده اللي بيخلي زرار "Run workflow" يظهر
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'HEAD'
+
+      - name: Build C++ Engine (TURBO_FLASH_TOOL.exe)
         shell: pwsh
         run: |
 
@@ -104,3 +126,9 @@
           Write-Host "====================================="
           Write-Host " BUILD SUCCESSFUL "
           Write-Host "====================================="
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TURBO_FLASH_TOOL
+          path: TURBO_FLASH_TOOL.exe          Write-Host "====================================="
