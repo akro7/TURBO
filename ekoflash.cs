@@ -47,10 +47,10 @@ namespace MKVenomTool
             ShowTab("cmd");
 
             AppendLog("MK Venom Tool ready.");
-            AppendLog($"platform-tools (adb)     : {(File.Exists(ToolsManager.AdbExe) ? "ready" : "missing")}");
-            AppendLog($"platform-tools (fastboot): {(File.Exists(ToolsManager.FastbootExe) ? "ready" : "missing")}");
-            AppendLog($"odin engine (ekoflash)   : {(File.Exists(ToolsManager.EkoFlashExe) ? "ready" : "missing")}");
-            AppendLog($"zadig                    : {(File.Exists(ToolsManager.ZadigExe) ? "ready" : "missing")}");
+            AppendLog($"platform-tools (adb)      : {(File.Exists(ToolsManager.AdbExe) ? "ready" : "missing")}");
+            AppendLog($"platform-tools (fastboot) : {(File.Exists(ToolsManager.FastbootExe) ? "ready" : "missing")}");
+            AppendLog($"odin engine (ekoflash)    : {(File.Exists(ToolsManager.EkoFlashExe) ? "ready" : "missing")}");
+            AppendLog($"zadig                     : {(File.Exists(ToolsManager.ZadigExe) ? "ready" : "missing")}");
             UpdateCommandPreview();
         }
 
