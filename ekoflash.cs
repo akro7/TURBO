@@ -318,4 +318,484 @@ namespace MKVenomTool
 
             if (_mode == FlashMode.Fastboot)
             {
-                var sel = _fbRows.Where(r => !string.Is
+                var sel = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+                if (sel.Count == 0) { AppendLog("No files selected."); return; }
+                await FlashFastbootAsync(sel);
+            }
+            else if (_mode == FlashMode.Odin)
+            {
+                var sel = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+                if (sel.Count == 0) { AppendLog("No files selected."); return; }
+                await FlashOdinAsync(sel);
+            }
+            else if (_mode == FlashMode.Sideload)
+            {
+                await StartSideloadInternal();
+            }
+        }
+
+        private async Task FlashFastbootAsync(List<FlashRow> rows)
+        {
+            if (!_deviceChecked) { AppendLog("Detect device first."); return; }
+            if (!_deviceConnected) { AppendLog("Device not connected."); return; }
+
+            int total = rows.Count;
+            int i = 0;
+            foreach (var row in rows)
+            {
+                i++;
+                string args = $"flash {row.Key.ToLower()} \"{row.FilePath}\"";
+                AppendLog($"> fastboot {args}");
+                AppendLog($"[{row.Label}] 1/3 Prepare ({i}/{total})");
+                AppendLog($"[{row.Label}] 2/3 Flashing...");
+                var r = await RunAsync("platform-tools", "fastboot", args, 30 * 60 * 1000);
+
+                if (r.Code != 0)
+                {
+                    AppendLog($"[{row.Label}] FAILED (exit {r.Code})");
+                    if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+                    if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+                    return;
+                }
+
+                AppendLog($"[{row.Label}] 3/3 Flash completed");
+            }
+
+            AppendLog("Fastboot flashing complete.");
+            if (AutoRebootCheck.IsChecked == true)
+            {
+                await RunAsync("platform-tools", "fastboot", "reboot", 15000);
+                AppendLog("Rebooted.");
+            }
+        }
+
+        // ===== EKOFALSH CLI BUILDER (correct flags) =====
+        private string BuildOdinCommandArgs(IEnumerable<FlashRow> rows)
+        {
+            var sb = new StringBuilder();
+
+            foreach (var row in rows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)))
+            {
+                switch (row.Key.ToUpperInvariant())
+                {
+                    case "BL":
+                        sb.Append($" -b \"{row.FilePath}\"");
+                        break;
+                    case "AP":
+                        sb.Append($" -a \"{row.FilePath}\"");
+                        break;
+                    case "CP":
+                        sb.Append($" -c \"{row.FilePath}\"");
+                        break;
+                    case "CSC":
+                        sb.Append($" -s \"{row.FilePath}\"");
+                        break;
+                    case "USERDATA":
+                        sb.Append($" -u \"{row.FilePath}\"");
+                        break;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_pitFilePath))
+                sb.Append($" --use-pit \"{_pitFilePath}\"");
+
+            // ekoflash supports --no-reboot only
+            bool autoReboot = (OptAutoReboot?.IsChecked ?? AutoRebootCheck?.IsChecked) == true;
+            if (!autoReboot)
+                sb.Append(" --no-reboot");
+
+            return sb.ToString().Trim();
+        }
+
+        private async Task FlashOdinAsync(List<FlashRow> rows)
+        {
+            if (!ToolsManager.ExeExists("odin", "ekoflash"))
+            {
+                AppendLog("ekoflash.exe missing. Cannot flash Odin files.");
+                return;
+            }
+
+            string args = BuildOdinCommandArgs(rows);
+            if (string.IsNullOrWhiteSpace(args))
+            {
+                AppendLog("No Odin files selected.");
+                return;
+            }
+
+            // Unsupported UI options in current ekoflash CLI
+            if (OptRePartition?.IsChecked == true)
+                AppendLog("Note: Re-Partition option ignored (not supported by current ekoflash CLI).");
+            if (OptNandErase?.IsChecked == true)
+                AppendLog("Note: Nand Erase option ignored (not supported by current ekoflash CLI).");
+            if (OptFResetTime?.IsChecked == true)
+                AppendLog("Note: F. Reset Time option ignored (not supported by current ekoflash CLI).");
+            if (OptDeviceInfo?.IsChecked == true)
+                AppendLog("Note: Device Info option ignored (not supported by current ekoflash CLI).");
+            if (OptFlashLock?.IsChecked == true)
+                AppendLog("Note: Flash Lock option ignored (not supported by current ekoflash CLI).");
+            if (OptDecompressData?.IsChecked == true)
+                AppendLog("Note: Decompress Data option ignored (not supported by current ekoflash CLI).");
+
+            AppendLog($"> ekoflash {args}");
+            AppendLog("[ODIN] 1/3 Prepare");
+            AppendLog("[ODIN] 2/3 Flashing...");
+
+            var r = await RunAsync("odin", "ekoflash", args, 30 * 60 * 1000);
+
+            if (r.Code != 0)
+            {
+                AppendLog($"[ODIN] FAILED (exit {r.Code})");
+                if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+                if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+
+            AppendLog("[ODIN] 3/3 Flash completed");
+            AppendLog("Odin flashing complete.");
+        }
+
+        private async void StartSideload_Click(object s, RoutedEventArgs e) => await StartSideloadInternal();
+
+        private async Task StartSideloadInternal()
+        {
+            string path = SideloadPathBox.Text.Trim();
+            if (string.IsNullOrEmpty(path)) { AppendLog("Select an OTA ZIP first."); return; }
+            AppendLog($"> adb sideload \"{path}\"");
+            var r = await RunAsync("platform-tools", "adb", $"sideload \"{path}\"", 30 * 60 * 1000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+            AppendLog(r.Code == 0 ? "Sideload complete ✓" : "Sideload FAILED.");
+        }
+
+        // kept for compatibility if needed elsewhere
+        private async Task<string?> ExtractImgAsync(string tarPath)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    string outDir = Path.Combine(Path.GetTempPath(), "MKVenomTool_extract");
+                    Directory.CreateDirectory(outDir);
+
+                    using var fs = File.OpenRead(tarPath);
+                    using var tar = TarArchive.CreateInputTarArchive(fs, Encoding.UTF8);
+                    tar.ExtractContents(outDir);
+
+                    var imgs = Directory.GetFiles(outDir, "*.img", SearchOption.AllDirectories);
+                    if (imgs.Length > 0) return imgs[0];
+
+                    var any = Directory.GetFiles(outDir, "*", SearchOption.AllDirectories)
+                                       .Where(f => !f.EndsWith(".md5", StringComparison.OrdinalIgnoreCase))
+                                       .FirstOrDefault();
+                    return any;
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(() => AppendLog($"  Extract error: {ex.Message}"));
+                    return null;
+                }
+            });
+        }
+
+        private async void QuickCmd_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string cmd) return;
+            AppendLog($"> {cmd}");
+            var parts = cmd.Split(' ', 2);
+            var r = await RunAsync("platform-tools", parts[0], parts.Length > 1 ? parts[1] : "", 30000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
+        }
+
+        private async void RunCustomAdb_Click(object s, RoutedEventArgs e)
+        {
+            string args = CustomAdbBox.Text.Trim();
+            if (string.IsNullOrEmpty(args)) { AppendLog("Enter adb args."); return; }
+            AppendLog($"> adb {args}");
+            var r = await RunAsync("platform-tools", "adb", args, 60000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
+        }
+
+        private async void RunCustomFastboot_Click(object s, RoutedEventArgs e)
+        {
+            string args = CustomFastbootBox.Text.Trim();
+            if (string.IsNullOrEmpty(args)) { AppendLog("Enter fastboot args."); return; }
+            AppendLog($"> fastboot {args}");
+            var r = await RunAsync("platform-tools", "fastboot", args, 60000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
+        }
+
+        private async void InstallApk_Click(object s, RoutedEventArgs e)
+        {
+            string p = ApkPathBox.Text.Trim();
+            if (string.IsNullOrEmpty(p)) { AppendLog("Select APK first."); return; }
+            AppendLog($"> adb install \"{p}\"");
+            var r = await RunAsync("platform-tools", "adb", $"install \"{p}\"", 120000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
+            AppendLog(r.Code == 0 ? "APK installed ✓" : "APK install FAILED.");
+        }
+
+        private void LaunchZadig_Click(object s, RoutedEventArgs e) => LaunchZadigInternal();
+
+        private void LaunchZadigInternal()
+        {
+            string exe = ToolsManager.GetExePath("zadig", "zadig");
+            if (!File.Exists(exe)) { AppendLog("zadig.exe not found."); return; }
+            AppendLog($"Launching Zadig: {exe}");
+            try { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true }); }
+            catch (Exception ex) { AppendLog($"Launch failed: {ex.Message}"); }
+        }
+
+        private async void WipeData_Click(object s, RoutedEventArgs e)
+        {
+            if (_mode != FlashMode.Fastboot) { AppendLog("Wipe: Fastboot mode only."); return; }
+            var r = await RunAsync("platform-tools", "fastboot", "-w", 600000);
+            AppendLog(r.Code == 0 ? "Wipe done." : $"Wipe FAILED (exit {r.Code}). {r.Err.Trim()}");
+        }
+
+        private async void RebootSystem_Click(object s, RoutedEventArgs e)
+        {
+            if (_mode == FlashMode.Fastboot || _mode == FlashMode.Tools)
+            {
+                await RunAsync("platform-tools", "fastboot", "reboot", 15000);
+                AppendLog("Reboot: fastboot reboot");
+            }
+            else
+            {
+                await RunAsync("platform-tools", "adb", "reboot", 15000);
+                AppendLog("Reboot: adb reboot");
+            }
+        }
+
+        private void ResetAll_Click(object s, RoutedEventArgs e)
+        {
+            foreach (var r in _fbRows) r.FilePath = "";
+            foreach (var r in _odinRows) r.FilePath = "";
+            _pitFilePath = "";
+            PitPathBox.Text = "";
+            if (SideloadPathBox != null) SideloadPathBox.Text = "";
+            if (ApkPathBox != null) ApkPathBox.Text = "";
+            if (CustomAdbBox != null) CustomAdbBox.Text = "";
+            if (CustomFastbootBox != null) CustomFastbootBox.Text = "";
+            CommandPreviewBox.Clear();
+            AppendLog("All cleared.");
+        }
+
+        private void UpdateCommandPreview()
+        {
+            var lines = new List<string>();
+            if (_mode == FlashMode.Fastboot)
+            {
+                lines.AddRange(_fbRows
+                    .Where(r => !string.IsNullOrWhiteSpace(r.FilePath))
+                    .Select(r => $"fastboot flash {r.Key.ToLower()} \"{r.FilePath}\""));
+            }
+            else if (_mode == FlashMode.Odin)
+            {
+                var selected = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+                var args = BuildOdinCommandArgs(selected);
+                if (!string.IsNullOrWhiteSpace(args))
+                    lines.Add($"ekoflash {args}");
+                else
+                    lines.Add("No command queued.");
+            }
+            else if (_mode == FlashMode.Sideload && SideloadPathBox != null && !string.IsNullOrWhiteSpace(SideloadPathBox.Text))
+            {
+                lines.Add($"adb sideload \"{SideloadPathBox.Text}\"");
+            }
+            else if (_mode == FlashMode.BackupRestore)
+            {
+                lines.Add("Backup/Restore mode uses adb shell su -c + tar + pull/push");
+            }
+
+            CommandPreviewBox.Text = lines.Count == 0 ? "No command queued." : string.Join(Environment.NewLine, lines);
+        }
+
+        private void AppendLog(string msg)
+        {
+            if (!_uiReady || LogBox == null) return;
+            LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}{Environment.NewLine}");
+            LogBox.ScrollToEnd();
+        }
+
+        private Task<(int Code, string Out, string Err)> RunAsync(string folder, string exe, string args, int ms)
+            => RunProcessAsync(ToolsManager.GetExePath(folder, exe), args, ms);
+
+        private async Task<(int Code, string Out, string Err)> RunProcessAsync(string fileName, string args, int ms)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var p = new Process { StartInfo = psi };
+                var o = new StringBuilder();
+                var er = new StringBuilder();
+
+                p.OutputDataReceived += (_, e) => { if (e.Data != null) o.AppendLine(e.Data); };
+                p.ErrorDataReceived += (_, e) => { if (e.Data != null) er.AppendLine(e.Data); };
+
+                p.Start();
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+
+                using var cts = new CancellationTokenSource(ms);
+                try { await p.WaitForExitAsync(cts.Token); }
+                catch (OperationCanceledException) { try { p.Kill(true); } catch { } return (-1, o.ToString(), $"Timeout {ms / 1000}s"); }
+
+                return (p.ExitCode, o.ToString(), er.ToString());
+            }
+            catch (Exception ex) { return (-1, "", ex.Message); }
+        }
+
+        private async void LoadApps_Click(object sender, RoutedEventArgs e)
+        {
+            _backupApps.Clear();
+            AppendLog("Loading apps list (root) ...");
+
+            bool rootOk = await BackupService.CheckRootAsync(AppendLog);
+            if (!rootOk) { AppendLog("Root check failed."); return; }
+
+            var apps = await BackupService.GetInstalledAppsAsync(AppendLog);
+            foreach (var a in apps)
+            {
+                var letter = string.IsNullOrWhiteSpace(a.DisplayName) ? "?" : a.DisplayName.Substring(0, 1).ToUpperInvariant();
+                _backupApps.Add(new BackupAppRow
+                {
+                    PackageName = a.PackageName,
+                    DisplayName = a.DisplayName,
+                    IconLetter = letter
+                });
+            }
+
+            AppendLog($"Apps loaded: {_backupApps.Count}");
+        }
+
+        private async void StartBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = _backupApps.Where(a => a.IsSelected).ToList();
+            if (selected.Count == 0) { AppendLog("Select at least one app."); return; }
+
+            var options = new BackupOptions
+            {
+                BackupApk = GetBkApkOpt()?.IsChecked == true,
+                BackupData = GetBkDataOpt()?.IsChecked == true,
+                BackupUserDe = GetBkUserDeOpt()?.IsChecked == true,
+                BackupObb = GetBkObbOpt()?.IsChecked == true
+            };
+
+            if (!options.BackupApk && !options.BackupData && !options.BackupUserDe && !options.BackupObb)
+            {
+                AppendLog("Select at least one backup option.");
+                return;
+            }
+
+            bool rootOk = await BackupService.CheckRootAsync(AppendLog);
+            if (!rootOk) { AppendLog("Root check failed."); return; }
+
+            int total = selected.Count;
+            int idx = 0;
+            foreach (var app in selected)
+            {
+                idx++;
+                AppendLog($"[{idx}/{total}] Backup start: {app.PackageName}");
+                var ok = await BackupService.BackupAppAsync(app.PackageName, app.DisplayName, options, AppendLog);
+                AppendLog(ok ? $"Backup done: {app.PackageName}" : $"Backup failed: {app.PackageName}");
+            }
+
+            AppendLog("Backup batch finished.");
+            await RefreshBackupsInternal();
+        }
+
+        private async void RefreshBackups_Click(object sender, RoutedEventArgs e) => await RefreshBackupsInternal();
+
+        private async Task RefreshBackupsInternal()
+        {
+            _backupSets.Clear();
+            var list = await BackupService.GetBackupsAsync(AppendLog);
+            foreach (var b in list)
+            {
+                var letter = string.IsNullOrWhiteSpace(b.DisplayName) ? "?" : b.DisplayName.Substring(0, 1).ToUpperInvariant();
+                _backupSets.Add(new BackupSetRow
+                {
+                    BackupPath = b.BackupPath,
+                    PackageName = b.PackageName,
+                    DisplayName = b.DisplayName,
+                    BackupDateText = b.BackupDate.ToString("yyyy-MM-dd HH:mm:ss"),
+                    IconLetter = letter
+                });
+            }
+            AppendLog($"Backups found: {_backupSets.Count}");
+        }
+
+        private async void RestoreSelected_Click(object sender, RoutedEventArgs e)
+        {
+            var list = GetBackupSetsList();
+            if (list?.SelectedItem is not BackupSetRow sel)
+            {
+                AppendLog("Select one backup to restore.");
+                return;
+            }
+
+            bool rootOk = await BackupService.CheckRootAsync(AppendLog);
+            if (!rootOk) { AppendLog("Root check failed."); return; }
+
+            AppendLog($"Restore start: {sel.PackageName}");
+            var ok = await BackupService.RestoreBackupAsync(sel.BackupPath, AppendLog);
+            AppendLog(ok ? "Restore completed." : "Restore failed.");
+        }
+    }
+
+    public class FlashRow : INotifyPropertyChanged
+    {
+        private string _fp = "";
+        public string Key { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string FilePath { get => _fp; set { if (_fp == value) return; _fp = value; OnPropertyChanged(); } }
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? p = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
+    }
+
+    public class BackupAppRow : INotifyPropertyChanged
+    {
+        private bool _isSelected;
+        public string PackageName { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string IconLetter { get; set; } = "?";
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected == value) return;
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
+    public class BackupSetRow
+    {
+        public string BackupPath { get; set; } = "";
+        public string PackageName { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string BackupDateText { get; set; } = "";
+        public string IconLetter { get; set; } = "?";
+    }
+}
