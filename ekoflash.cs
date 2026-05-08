@@ -14,7 +14,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace EkoFlashTool
+namespace MKVenomTool
 {
     public partial class MainWindow : Window
     {
@@ -61,6 +61,7 @@ namespace EkoFlashTool
             UpdateCommandPreview();
         }
 
+        // Optional controls for compatibility
         private ListView? GetBackupAppsList() => FindName("BackupAppsList") as ListView ?? FindName("AppsListView") as ListView;
         private ListView? GetBackupSetsList() => FindName("BackupSetsList") as ListView ?? FindName("BackupsListView") as ListView;
         private Grid? GetBackupPanel() => FindName("PanelBackupRestore") as Grid;
@@ -71,6 +72,7 @@ namespace EkoFlashTool
         private CheckBox? GetBkUserDeOpt() => FindName("BkOptUserDe") as CheckBox ?? FindName("BackupUserDeCheck") as CheckBox;
         private CheckBox? GetBkObbOpt() => FindName("BkOptObb") as CheckBox ?? FindName("BackupObbCheck") as CheckBox;
 
+        // ===== Theme =====
         private void Swatch_Click(object s, RoutedEventArgs e)
         {
             if (s is Button b && b.Tag is string n)
@@ -119,6 +121,7 @@ namespace EkoFlashTool
             SetModeButtonVisual();
         }
 
+        // ===== Tabs =====
         private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
         private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
 
@@ -146,6 +149,7 @@ namespace EkoFlashTool
             }
         }
 
+        // ===== Modes =====
         private void FastbootMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
         private void OdinMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
         private void SideloadMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
@@ -197,6 +201,7 @@ namespace EkoFlashTool
                 backupBtn.Background = _mode == FlashMode.BackupRestore ? on : off;
         }
 
+        // ===== Rows =====
         private void BuildFastbootRows()
         {
             _fbRows.Clear();
@@ -217,6 +222,7 @@ namespace EkoFlashTool
                 r.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(FlashRow.FilePath)) UpdateCommandPreview(); };
         }
 
+        // ===== Browse =====
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string key) return;
@@ -296,6 +302,7 @@ namespace EkoFlashTool
             }
         }
 
+        // ===== Detect =====
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
             if (DeviceStatusText != null)
@@ -342,6 +349,7 @@ namespace EkoFlashTool
                     : (false, "NO ADB DEVICE", "No ADB device found.");
             }
 
+            // Odin mode: use ekoflash --list
             if (!ToolsManager.ExeExists("odin", "ekoflash"))
                 return (false, "EKOFLASH MISSING", "ekoflash.exe not found.");
 
@@ -352,6 +360,7 @@ namespace EkoFlashTool
             if (od.Code == 0 && !l.Contains("no device") && !l.Contains("not found") && !l.Contains("0 device"))
                 return (true, "DOWNLOAD MODE READY", string.IsNullOrWhiteSpace(full) ? "Download mode detected." : full);
 
+            // fallback USB VID
             var pnp = await RunProcessAsync("pnputil.exe", "/enum-devices /connected", 12000);
             bool samsung = (pnp.Out + pnp.Err).ToUpperInvariant().Contains("VID_04E8");
             return samsung
@@ -359,6 +368,7 @@ namespace EkoFlashTool
                 : (false, "NO DOWNLOAD DEVICE", "No Samsung download-mode device found.");
         }
 
+        // ===== Flash =====
         private async void FlashOne_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string key) return;
@@ -434,271 +444,4 @@ namespace EkoFlashTool
 
             AppendLog("Fastboot flashing complete.");
             if (IsChecked("AutoRebootCheck"))
-                await RunAsync("platform-tools", "fastboot", "reboot", 15000);
-        }
-
-        private async Task FlashOdinAsync(List<FlashRow> rows)
-        {
-            var args = new List<string>();
-            if (!string.IsNullOrWhiteSpace(_pitFilePath))
-                args.Add($"--pit \"{_pitFilePath}\"");
-            foreach (var row in rows)
             {
-                if (string.IsNullOrWhiteSpace(row.FilePath)) continue;
-                args.Add($"--{row.Key.ToLowerInvariant()} \"{row.FilePath}\"");
-            }
-            if (IsChecked("NoRebootCheck")) args.Add("--no-reboot");
-            if (IsChecked("RescanUSB")) args.Add("--rescan-usb");
-
-            string cmd = string.Join(" ", args);
-            AppendLog($"> ekoflash.exe {cmd}");
-            AppendLog("Odin flashing started...");
-
-            var r = await RunAsync("odin", "ekoflash", cmd, 60 * 60 * 1000);
-            if (r.Code == 0)
-                AppendLog("Odin flashing completed successfully.");
-            else
-            {
-                AppendLog($"Odin flash FAILED (exit {r.Code})");
-                if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
-                if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
-            }
-        }
-
-        private async Task StartSideloadInternal()
-        {
-            string? zip = SideloadPathBox?.Text;
-            if (string.IsNullOrWhiteSpace(zip))
-            {
-                AppendLog("No sideload ZIP selected.");
-                return;
-            }
-            AppendLog($"> adb sideload \"{zip}\"");
-            var r = await RunAsync("platform-tools", "adb", $"sideload \"{zip}\"", 60 * 60 * 1000);
-            AppendLog(r.Code == 0 ? "Sideload complete." : $"Sideload FAILED (exit {r.Code})");
-            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
-            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
-        }
-
-        private void InstallApk_Click(object s, RoutedEventArgs e)
-        {
-            var apk = FindName("ApkPathBox") as TextBox;
-            if (apk == null || string.IsNullOrWhiteSpace(apk.Text))
-            {
-                AppendLog("No APK selected.");
-                return;
-            }
-            AppendLog($"> adb install \"{apk.Text}\"");
-            var task = RunAsync("platform-tools", "adb", $"install \"{apk.Text}\"", 120000);
-            task.ContinueWith(t =>
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    var r = t.Result;
-                    AppendLog(r.Code == 0 ? "APK installed." : $"APK install FAILED (exit {r.Code})");
-                    if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
-                    if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
-                });
-            });
-        }
-
-        private void QuickCmd_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button b && b.Tag is string cmd)
-            {
-                AppendLog($"> {cmd}");
-                var task = RunAsync("platform-tools", cmd.Split(' ')[0], cmd.Substring(cmd.IndexOf(' ') + 1), 30000);
-                task.ContinueWith(t =>
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        var r = t.Result;
-                        if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
-                        if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
-                    });
-                });
-            }
-        }
-
-        private void RunCustomAdb_Click(object s, RoutedEventArgs e)
-        {
-            var box = FindName("CustomAdbBox") as TextBox;
-            if (box == null || string.IsNullOrWhiteSpace(box.Text)) return;
-            var task = RunAsync("platform-tools", "adb", box.Text, 30000);
-            AppendLog($"> adb {box.Text}");
-            task.ContinueWith(t => Dispatcher.Invoke(() =>
-            {
-                var r = t.Result;
-                if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
-                if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
-            }));
-        }
-
-        private void RunCustomFastboot_Click(object s, RoutedEventArgs e)
-        {
-            var box = FindName("CustomFastbootBox") as TextBox;
-            if (box == null || string.IsNullOrWhiteSpace(box.Text)) return;
-            var task = RunAsync("platform-tools", "fastboot", box.Text, 30000);
-            AppendLog($"> fastboot {box.Text}");
-            task.ContinueWith(t => Dispatcher.Invoke(() =>
-            {
-                var r = t.Result;
-                if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
-                if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
-            }));
-        }
-
-        private void LaunchZadig_Click(object s, RoutedEventArgs e)
-        {
-            if (ToolsManager.ExeExists("zadig", "zadig"))
-            {
-                AppendLog("Launching Zadig...");
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = ToolsManager.GetExePath("zadig", "zadig"),
-                    UseShellExecute = true,
-                    Verb = "runas"
-                });
-            }
-            else AppendLog("Zadig not found.");
-        }
-
-        // ----- Command Preview -----
-        private void UpdateCommandPreview()
-        {
-            if (FindName("CommandPreviewBlock") is not TextBlock preview) return;
-
-            string text;
-            if (_mode == FlashMode.Fastboot)
-            {
-                var sel = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
-                text = sel.Count == 0 ? "fastboot (no files)" : string.Join("\n", sel.Select(r => $"fastboot flash {r.Key} \"{r.FilePath}\""));
-            }
-            else if (_mode == FlashMode.Odin)
-            {
-                var sel = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
-                var args = new List<string>();
-                if (!string.IsNullOrWhiteSpace(_pitFilePath)) args.Add($"--pit \"{_pitFilePath}\"");
-                foreach (var r in sel) args.Add($"--{r.Key} \"{r.FilePath}\"");
-                text = args.Count == 0 ? "ekoflash (no files)" : $"ekoflash {string.Join(" ", args)}";
-            }
-            else if (_mode == FlashMode.Sideload)
-            {
-                string zip = SideloadPathBox?.Text ?? "";
-                text = string.IsNullOrWhiteSpace(zip) ? "adb sideload (no file)" : $"adb sideload \"{zip}\"";
-            }
-            else text = _mode == FlashMode.Tools ? "Tools mode" : "Backup/Restore mode";
-
-            preview.Text = text;
-        }
-
-        // ----- Helpers -----
-        private void AppendLog(string text)
-        {
-            if (FindName("LogOutput") is RichTextBox log)
-            {
-                var p = new Paragraph();
-                p.Inlines.Add(new Run($"[{DateTime.Now:HH:mm:ss}] {text}\n") { Foreground = Brushes.LightGray });
-                log.Document.Blocks.Add(p);
-                log.ScrollToEnd();
-            }
-        }
-
-        private bool IsChecked(string name)
-        {
-            var ctrl = FindName(name) as CheckBox;
-            return ctrl?.IsChecked == true;
-        }
-
-        // Placeholder for actual process runner – replace with your real implementation
-        private Task<(int Code, string Out, string Err)> RunAsync(string tool, string exe, string args, int timeoutMs)
-        {
-            return Task.Run(() =>
-            {
-                try
-                {
-                    var start = new ProcessStartInfo
-                    {
-                        FileName = ToolsManager.GetExePath(tool, exe),
-                        Arguments = args,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true
-                    };
-                    using var p = Process.Start(start);
-                    if (p == null) return (-1, "", "Process start failed.");
-                    var outTask = p.StandardOutput.ReadToEndAsync();
-                    var errTask = p.StandardError.ReadToEndAsync();
-                    p.WaitForExit(timeoutMs);
-                    return (p.HasExited ? p.ExitCode : -2, outTask.Result, errTask.Result);
-                }
-                catch (Exception ex)
-                {
-                    return (-3, "", ex.Message);
-                }
-            });
-        }
-
-        private Task<(int Code, string Out, string Err)> RunProcessAsync(string fileName, string args, int timeoutMs)
-        {
-            return Task.Run(() =>
-            {
-                try
-                {
-                    var start = new ProcessStartInfo
-                    {
-                        FileName = fileName,
-                        Arguments = args,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        CreateNoWindow = true
-                    };
-                    using var p = Process.Start(start);
-                    if (p == null) return (-1, "", "Process start failed.");
-                    var outTask = p.StandardOutput.ReadToEndAsync();
-                    var errTask = p.StandardError.ReadToEndAsync();
-                    p.WaitForExit(timeoutMs);
-                    return (p.HasExited ? p.ExitCode : -2, outTask.Result, errTask.Result);
-                }
-                catch (Exception ex)
-                {
-                    return (-3, "", ex.Message);
-                }
-            });
-        }
-    }
-
-    // ----- Support Classes -----
-    public class FlashRow : INotifyPropertyChanged
-    {
-        private string _filePath = "";
-        public string Key { get; set; } = "";
-        public string Label { get; set; } = "";
-
-        public string FilePath
-        {
-            get => _filePath;
-            set { _filePath = value; OnPropertyChanged(); }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? n = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-    }
-
-    public class BackupAppRow { public string Package { get; set; } = ""; public string Name { get; set; } = ""; public bool Selected { get; set; } }
-    public class BackupSetRow { public string Name { get; set; } = ""; public string Date { get; set; } = ""; }
-
-    public static class ToolsManager
-    {
-        private static readonly string BaseDir = AppDomain.CurrentDomain.BaseDirectory;
-
-        public static string GetExePath(string tool, string exe) =>
-            Path.Combine(BaseDir, tool, exe + ".exe");
-
-        public static bool ExeExists(string tool, string exe) =>
-            File.Exists(GetExePath(tool, exe));
-    }
-}
