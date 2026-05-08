@@ -38,6 +38,12 @@ jobs:
           "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
           Write-Host "main.cpp generated OK"
 
+      - name: Download Architecture Specific Drivers
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/Gabriel2392/brokkr-flash/releases/download/v1.4.5/Brokkr-windows-arm64.exe" -OutFile "brokkr_arm64.exe"
+          Invoke-WebRequest -Uri "https://github.com/Gabriel2392/brokkr-flash/releases/download/v1.4.5/Brokkr-windows-x64.exe" -OutFile "brokkr_x64.exe"
+
       - name: Build ekoflash.exe (C++ Engine via MSVC - Static)
         shell: pwsh
         run: |
@@ -105,22 +111,21 @@ jobs:
           $defineList = $defines  -join " "
           $flagList   = $flags    -join " "
 
-          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib fmt.lib"
+          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib Gdi32.lib Shell32.lib `"$VCPKG_LIB\fmt.lib`""
           $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
 
           $cmd = "cl.exe $flagList $inclList $defineList $srcList" +
                  " /Fe:ekoflash.exe" +
                  " /link $libPath $linkLibs"
 
-          Write-Host "=== CMD ==="
-          Write-Host $cmd
+          Write-Host "=== Building Engine ==="
           Invoke-Expression $cmd
 
           if (-not (Test-Path "ekoflash.exe")) {
             Write-Error "ERROR: ekoflash.exe not found!"
             exit 1
           }
-          Write-Host "Engine built OK (Static)"
+          Write-Host "Engine built OK"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -139,11 +144,15 @@ jobs:
           $files = @(
             "ekoflash.py","ekoflash.exe","fastboot.exe","adb.exe",
             "AdbWinApi.dll","AdbWinUsbApi.dll","libusb-1.0.dll",
-            "zadig.exe","THIRD_PARTY_NOTICES.txt","LICENSE","icon.ico"
+            "zadig.exe","brokkr_arm64.exe","brokkr_x64.exe",
+            "THIRD_PARTY_NOTICES.txt","LICENSE","icon.ico"
           )
           foreach ($f in $files) {
             if (Test-Path $f) { Write-Host "OK: $f" }
-            else { Write-Error "MISSING: $f"; exit 1 }
+            else { 
+              Write-Error "CRITICAL MISSING: $f"
+              exit 1
+            }
           }
 
       - name: Build GUI EXE with PyInstaller
@@ -158,6 +167,8 @@ jobs:
             --add-data "AdbWinUsbApi.dll;." `
             --add-data "libusb-1.0.dll;." `
             --add-data "zadig.exe;." `
+            --add-data "brokkr_arm64.exe;." `
+            --add-data "brokkr_x64.exe;." `
             --add-data "THIRD_PARTY_NOTICES.txt;." `
             --add-data "LICENSE;." `
             --add-data "icon.ico;." `
