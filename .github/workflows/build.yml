@@ -1,4 +1,4 @@
-name: Build EKOFLASH PRO (Full Integration)
+name: Build EKOFLASH EXE
 
 on:
   push:
@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-engine:
-    name: Build C++ Odin Engine
+  build:
     runs-on: windows-latest
     steps:
       - name: Check Out Repository
@@ -21,65 +20,57 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install dependencies via vcpkg
+      - name: Install fmt + spdlog via vcpkg (Static)
+        shell: pwsh
         run: |
           vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
           vcpkg integrate install
 
-      - name: Fix xxhash - Generate xxhash.c from header-only vendor
+      - name: Fix md5_xxh3_cache - Resolve Status namespace conflict
         shell: pwsh
         run: |
-          # xxhash in your repo is header-only (xxhash_vendor.h).
-          # We generate a .c file that enables the implementation.
-          $xxhashC = @"
-          #define XXH_STATIC_LINKING_ONLY
-          #define XXH_IMPLEMENTATION
-          #include "xxhash_vendor.h"
-          "@
-          $xxhashC | Set-Content "src\third_party\xxhash\xxhash.c" -Encoding UTF8
-          Write-Host "Generated xxhash.c successfully" -ForegroundColor Green
-
-      - name: Fix namespace conflicts in md5_xxh3_cache
-        shell: pwsh
-        run: |
-          # The file uses brokkr::core::Result and brokkr::core::Status
-          # but these types live in brokkr::app namespace locally.
-          # We inject a using directive at the top of the .cpp file.
           $file = "src\app\md5_xxh3_cache.cpp"
-          if (Test-Path $file) {
-            $content = Get-Content $file -Raw
-            # Only patch if not already patched
-            if ($content -notmatch "using brokkr::app::Result") {
-              $patch = "// AUTO-PATCHED: resolve Status/Result namespace`n"
-              $patch += "namespace brokkr { namespace core {`n"
-              $patch += "  using Status = brokkr::app::Status;`n"
-              $patch += "} }`n`n"
-              $patch + $content | Set-Content $file -Encoding UTF8
-              Write-Host "Patched namespace in $file" -ForegroundColor Green
-            }
+          if (!(Test-Path $file)) { Write-Error "MISSING: $file"; exit 1 }
+          $content = Get-Content $file -Raw
+          if ($content -notmatch "NAMESPACE_FIX_APPLIED") {
+            $fix = "// NAMESPACE_FIX_APPLIED`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n`n"
+            $fixed = $content -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n$fix"
+            $fixed | Set-Content $file -Encoding UTF8
+            Write-Host "Patched: $file" -ForegroundColor Green
           }
 
-      - name: Generate main.cpp
+      - name: Generate xxhash.c (header-only implementation)
+        shell: pwsh
+        run: |
+          $dir = "src\third_party\xxhash"
+          if (!(Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir }
+          if (Test-Path "$dir\xxhash_vendor.h") { $h = "xxhash_vendor.h" }
+          elseif (Test-Path "$dir\xxhash.h")    { $h = "xxhash.h" }
+          else { Write-Error "No xxhash header found"; exit 1 }
+          "#define XXH_STATIC_LINKING_ONLY`n#define XXH_IMPLEMENTATION`n#include `"$h`"" |
+            Set-Content "$dir\xxhash.c" -Encoding UTF8
+          Write-Host "Generated xxhash.c using $h" -ForegroundColor Green
+
+      - name: Generate main.cpp entry point
         shell: pwsh
         run: |
           if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
-          $mainContent = @"
-          #include "cli_mode.hpp"
-          int main(int argc, char* argv[]) {
-              if (brokkr::app::should_run_cli(argc, argv)) {
-                  return brokkr::app::run_cli(argc, argv);
-              }
-              return 0;
-          }
-          "@
-          $mainContent | Set-Content "src\app\main.cpp" -Encoding UTF8
+          @"
+#include "cli_mode.hpp"
+int main(int argc, char* argv[]) {
+    if (brokkr::app::should_run_cli(argc, argv)) {
+        return brokkr::app::run_cli(argc, argv);
+    }
+    return 0;
+}
+"@ | Set-Content "src\app\main.cpp" -Encoding UTF8
+          Write-Host "main.cpp generated OK"
 
-      - name: Build ekoflash.exe (Static C++)
+      - name: Build ekoflash.exe (C++ Engine - Static MSVC)
         shell: pwsh
         run: |
-          $VCPKG_ROOT = "$env:VCPKG_INSTALLATION_ROOT"
-          $VCPKG_INC = "$VCPKG_ROOT\installed\x64-windows-static\include"
-          $VCPKG_LIB = "$VCPKG_ROOT\installed\x64-windows-static\lib"
+          $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
+          $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
 
           $sources = @(
             "src\protocol\odin\flash.cpp",
@@ -108,76 +99,59 @@ jobs:
           )
 
           $includes = @(
-            "/I", "src",
-            "/I", "src\core",
-            "/I", "src\io",
-            "/I", "src\platform\windows",
-            "/I", "src\platform\posix-common",
-            "/I", "src\protocol\odin",
-            "/I", "src\app",
-            "/I", "src\third_party\lz4",
-            "/I", "src\third_party\md5",
-            "/I", "src\third_party\xxhash",
-            "/I", "$VCPKG_INC"
+            "/I src",
+            "/I src\core",
+            "/I src\io",
+            "/I src\platform\windows",
+            "/I src\platform\posix-common",
+            "/I src\protocol\odin",
+            "/I src\app",
+            "/I src\third_party\lz4",
+            "/I src\third_party\md5",
+            "/I src\third_party\xxhash",
+            "/I `"$VCPKG_INC`""
           )
 
           $defines = @(
-            "/D", "BROKKR_PLATFORM_WINDOWS",
-            "/D", "WIN32_LEAN_AND_MEAN",
-            "/D", "NOMINMAX",
-            "/D", "_WIN32_WINNT=0x0A00",
-            "/D", "SPDLOG_FMT_EXTERNAL",
-            "/D", "FMT_HEADER_ONLY=0",
-            "/D", "XXH_STATIC_LINKING_ONLY",
-            "/D", "XXH_IMPLEMENTATION"
+            "/D BROKKR_PLATFORM_WINDOWS",
+            "/D WIN32_LEAN_AND_MEAN",
+            "/D NOMINMAX",
+            "/D _WIN32_WINNT=0x0A00",
+            "/D SPDLOG_FMT_EXTERNAL",
+            "/D XXH_STATIC_LINKING_ONLY",
+            "/D XXH_IMPLEMENTATION",
+            "/D FMT_HEADER_ONLY=0"
           )
 
-          $flags = @(
-            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8",
-            "/Zc:__cplusplus", "/permissive-",
-            "/wd4005"
-          )
+          $flags = "/std:c++latest /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /permissive- /wd4005 /wd4996"
+          $srcList  = $sources  -join " "
+          $inclList = $includes -join " "
+          $defList  = $defines  -join " "
+          $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
+          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib fmt.lib"
 
-          $linkerFlags = @(
-            "/link",
-            "/LIBPATH:$VCPKG_LIB",
-            "Ws2_32.lib", "SetupAPI.lib", "User32.lib",
-            "Advapi32.lib", "fmt.lib"
-          )
+          $cmd = "cl.exe $flags $inclList $defList $srcList /Fe:ekoflash.exe /link $libPath $linkLibs"
+          Write-Host "=== CMD ===" -ForegroundColor Cyan
+          Write-Host $cmd
+          Invoke-Expression $cmd
 
-          & cl.exe $flags $includes $defines $sources /Fe:ekoflash.exe $linkerFlags
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Build failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+          if (-not (Test-Path "ekoflash.exe")) {
+            Write-Error "ekoflash.exe not found after build!"
+            exit 1
           }
+          Write-Host "C++ Engine built OK" -ForegroundColor Green
 
-      - name: Upload Engine Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: odin-engine
-          path: ekoflash.exe
-
-  build-gui:
-    name: Build EKOFLASH GUI & Final Bundle
-    needs: build-engine
-    runs-on: windows-latest
-    steps:
-      - name: Check Out Repository
-        uses: actions/checkout@v4
-
+      # ── C# / WPF GUI ──────────────────────────────────────────────────────
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Download Engine
-        uses: actions/download-artifact@v4
-        with:
-          name: odin-engine
-          path: .
+      - name: Restore NuGet packages
+        shell: pwsh
+        run: dotnet restore EkoFlashTool.csproj
 
-      - name: Publish EKOFLASH PRO
+      - name: Publish EKOFLASH GUI (self-contained WPF)
         shell: pwsh
         run: |
           dotnet publish EkoFlashTool.csproj `
@@ -186,16 +160,30 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
             -o ./publish
 
-      - name: Rename and Finalize
+      - name: Bundle ekoflash.exe inside publish folder
         shell: pwsh
         run: |
-          if (Test-Path "./publish/EkoFlashTool.exe") {
-            Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
+          # ننسخ محرك C++ داخل مجلد النشر حتى يجده الـ GUI وقت التشغيل
+          Copy-Item "ekoflash.exe" "./publish/ekoflash.exe" -Force
+          Write-Host "ekoflash.exe copied to publish folder" -ForegroundColor Green
+
+      - name: Rename final EXE
+        shell: pwsh
+        run: |
+          $src = "./publish/EkoFlashTool.exe"
+          $dst = "./publish/EKOFLASH_PRO_v3.0.exe"
+          if (Test-Path $src) {
+            Move-Item $src $dst -Force
+            Write-Host "Renamed to EKOFLASH_PRO_v3.0.exe" -ForegroundColor Green
+          } else {
+            Write-Error "EkoFlashTool.exe not found in publish folder!"
+            exit 1
           }
 
-      - name: Upload Final Release
+      - name: Upload Final Artifact
         uses: actions/upload-artifact@v4
         with:
           name: EKOFLASH_PRO_BUNDLE
