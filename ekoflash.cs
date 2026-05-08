@@ -16,8 +16,9 @@ namespace EkoFlashTool
 {
     public partial class MainWindow : Window
     {
-        private CancellationTokenSource _cancelTokenSource;
-        private Process _fastbootProcess;
+        // جعل الحقلين nullable لتفادي تحذير CS8618 (اختياري)
+        private CancellationTokenSource? _cancelTokenSource;
+        private Process? _fastbootProcess;
 
         public MainWindow()
         {
@@ -37,6 +38,33 @@ namespace EkoFlashTool
             Properties.Settings.Default.Save();
         }
 
+        // ---------- الدوال التي يناديها XAML (مطلوبة للتجميع) ----------
+        private void Swatch_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void FastbootMode_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void OdinMode_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void SideloadMode_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void ToolsMode_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void DetectDevice_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void BrowsePit_Click(object sender, RoutedEventArgs e) => BrowsePitFile();
+        private void ClearPit_Click(object sender, RoutedEventArgs e) => PitFilePathTextBox.Text = "";
+        private void BrowseSideload_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void StartSideload_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void QuickCmd_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void RunCustomAdb_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void RunCustomFastboot_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void BrowseApk_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void InstallApk_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void LaunchZadig_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void TabCmd_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void TabOptions_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void FlashAll_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void Cancel_Click(object sender, RoutedEventArgs e) => StopProcess();
+        private void Browse_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void FlashOne_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void BrowseOdin_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+        private void FlashOneOdin_Click(object sender, RoutedEventArgs e) => throw new NotImplementedException();
+
+        // ---------- الوظائف الأساسية (التي كانت موجودة أصلاً) ----------
         private async void StartProcessButton_Click(object sender, RoutedEventArgs e)
         {
             _cancelTokenSource = new CancellationTokenSource();
@@ -62,7 +90,9 @@ namespace EkoFlashTool
             }
         }
 
-        private void StopProcessButton_Click(object sender, RoutedEventArgs e)
+        private void StopProcessButton_Click(object sender, RoutedEventArgs e) => StopProcess();
+
+        private void StopProcess()
         {
             _cancelTokenSource?.Cancel();
             _fastbootProcess?.Kill();
@@ -72,9 +102,7 @@ namespace EkoFlashTool
         {
             string ekoFlashPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ekoflash.exe");
             if (!File.Exists(ekoFlashPath))
-            {
                 throw new FileNotFoundException("ekoflash.exe not found in application directory.");
-            }
 
             var psi = new ProcessStartInfo
             {
@@ -100,11 +128,9 @@ namespace EkoFlashTool
             _fastbootProcess = new Process { StartInfo = psi };
             _fastbootProcess.OutputDataReceived += (s, e) => Dispatcher.Invoke(() => AppendText(e.Data + "\n", Colors.LightGreen));
             _fastbootProcess.ErrorDataReceived += (s, e) => Dispatcher.Invoke(() => AppendText(e.Data + "\n", Colors.Red));
-
             _fastbootProcess.Start();
             _fastbootProcess.BeginOutputReadLine();
             _fastbootProcess.BeginErrorReadLine();
-
             await _fastbootProcess.WaitForExitAsync(token);
         }
 
@@ -116,7 +142,7 @@ namespace EkoFlashTool
             OutputScrollViewer.ScrollToEnd();
         }
 
-        private void BrowsePitButton_Click(object sender, RoutedEventArgs e)
+        private void BrowsePitFile()
         {
             var dlg = new Microsoft.Win32.OpenFileDialog
             {
@@ -124,9 +150,7 @@ namespace EkoFlashTool
                 Title = "Select PIT file"
             };
             if (dlg.ShowDialog() == true)
-            {
                 PitFilePathTextBox.Text = dlg.FileName;
-            }
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
