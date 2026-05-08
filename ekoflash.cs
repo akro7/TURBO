@@ -21,8 +21,10 @@ namespace MKVenomTool
         private enum FlashMode { Fastboot, Odin, Sideload, Tools, BackupRestore }
 
         private FlashMode _mode = FlashMode.Fastboot;
+
         private readonly ObservableCollection<FlashRow> _fbRows = new();
         private readonly ObservableCollection<FlashRow> _odinRows = new();
+
         private readonly ObservableCollection<BackupAppRow> _backupApps = new();
         private readonly ObservableCollection<BackupSetRow> _backupSets = new();
 
@@ -36,14 +38,19 @@ namespace MKVenomTool
             InitializeComponent();
             _uiReady = true;
 
+            ApplyTheme("Blue");
             BuildFastbootRows();
             BuildOdinRows();
-
-            BindItemsSources();
-
-            ApplyTheme("Blue");
             SwitchMode(FlashMode.Fastboot);
             ShowTab("cmd");
+
+            if (RowsList != null) RowsList.ItemsSource = _fbRows;
+            if (OdinRowsList != null) OdinRowsList.ItemsSource = _odinRows;
+
+            var appsList = GetBackupAppsList();
+            var setsList = GetBackupSetsList();
+            if (appsList != null) appsList.ItemsSource = _backupApps;
+            if (setsList != null) setsList.ItemsSource = _backupSets;
 
             AppendLog("MK Venom Tool ready.");
             AppendLog($"platform-tools (adb)      : {(ToolsManager.ExeExists("platform-tools", "adb") ? "✓ ready" : "✗ missing")}");
@@ -54,121 +61,125 @@ namespace MKVenomTool
             UpdateCommandPreview();
         }
 
-        private T? Ui<T>(string name) where T : class => FindName(name) as T;
+        // Optional controls for compatibility
+        private ListView? GetBackupAppsList() => FindName("BackupAppsList") as ListView ?? FindName("AppsListView") as ListView;
+        private ListView? GetBackupSetsList() => FindName("BackupSetsList") as ListView ?? FindName("BackupsListView") as ListView;
+        private Grid? GetBackupPanel() => FindName("PanelBackupRestore") as Grid;
+        private Button? GetBackupModeButton() => FindName("BackupRestoreBtn") as Button;
 
-        private bool IsChecked(params string[] names)
-        {
-            foreach (var n in names)
-            {
-                if (Ui<CheckBox>(n) is CheckBox cb && cb.IsChecked == true)
-                    return true;
-            }
-            return false;
-        }
-
-        private void BindItemsSources()
-        {
-            if (Ui<ItemsControl>("RowsList") is ItemsControl fbList) fbList.ItemsSource = _fbRows;
-            if (Ui<ItemsControl>("OdinRowsList") is ItemsControl odinList) odinList.ItemsSource = _odinRows;
-            if (Ui<ListView>("BackupAppsList") is ListView apps) apps.ItemsSource = _backupApps;
-            if (Ui<ListView>("BackupSetsList") is ListView sets) sets.ItemsSource = _backupSets;
-        }
+        private CheckBox? GetBkApkOpt() => FindName("BkOptApk") as CheckBox ?? FindName("BackupApkCheck") as CheckBox;
+        private CheckBox? GetBkDataOpt() => FindName("BkOptData") as CheckBox ?? FindName("BackupDataCheck") as CheckBox;
+        private CheckBox? GetBkUserDeOpt() => FindName("BkOptUserDe") as CheckBox ?? FindName("BackupUserDeCheck") as CheckBox;
+        private CheckBox? GetBkObbOpt() => FindName("BkOptObb") as CheckBox ?? FindName("BackupObbCheck") as CheckBox;
 
         // ===== Theme =====
-        private void Swatch_Click(object sender, RoutedEventArgs e)
+        private void Swatch_Click(object s, RoutedEventArgs e)
         {
-            if (sender is Button b && b.Tag is string t)
+            if (s is Button b && b.Tag is string n)
             {
-                ApplyTheme(t);
-                AppendLog($"Theme: {t}");
+                ApplyTheme(n);
+                AppendLog($"Theme: {n}");
             }
         }
 
         private void ApplyTheme(string theme)
         {
-            var map = new Dictionary<string, (Color ac, Color acSoft, Color border, Color panel, Color success, Color danger)>
+            var T = new Dictionary<string, (Color Ac, Color AS, Color Bo, Color Pa, Color Su, Color Da)>
             {
-                ["Blue"]    = (Color.FromRgb(0x37,0xCF,0xFF), Color.FromArgb(0x7A,0x35,0xCF,0xFF), Color.FromArgb(0x4C,0x52,0xBF,0xFF), Color.FromArgb(0x3A,0x0D,0x1B,0x33), Color.FromArgb(0x5A,0x1C,0xE1,0x7A), Color.FromArgb(0x5A,0xFF,0x4C,0x78)),
-                ["Purple"]  = (Color.FromRgb(0xB6,0x7B,0xFF), Color.FromArgb(0x80,0xA1,0x4D,0xFF), Color.FromArgb(0x4C,0xB1,0x86,0xFF), Color.FromArgb(0x3A,0x17,0x12,0x3A), Color.FromArgb(0x5A,0x38,0xD9,0x9E), Color.FromArgb(0x5A,0xFF,0x5E,0x98)),
-                ["Emerald"] = (Color.FromRgb(0x43,0xF2,0xC2), Color.FromArgb(0x7A,0x16,0xC4,0x98), Color.FromArgb(0x4C,0x5F,0xE4,0xC2), Color.FromArgb(0x3A,0x0A,0x1C,0x1A), Color.FromArgb(0x5A,0x27,0xE8,0x9D), Color.FromArgb(0x5A,0xFF,0x6C,0x85)),
-                ["Crimson"] = (Color.FromRgb(0xFF,0x6D,0xA8), Color.FromArgb(0x7A,0xFF,0x5B,0x93), Color.FromArgb(0x4C,0xFF,0x91,0xC2), Color.FromArgb(0x3A,0x20,0x0E,0x24), Color.FromArgb(0x5A,0x38,0xE0,0x9A), Color.FromArgb(0x5A,0xFF,0x4A,0x72)),
-                ["Gold"]    = (Color.FromRgb(0xFF,0xB8,0x30), Color.FromArgb(0x7A,0xFF,0xA0,0x20), Color.FromArgb(0x55,0xFF,0xC0,0x50), Color.FromArgb(0x38,0x1E,0x14,0x05), Color.FromArgb(0x5A,0x1C,0xE1,0x7A), Color.FromArgb(0x5A,0xFF,0x4C,0x78))
+                ["Blue"]    =(Color.FromRgb(0x37,0xCF,0xFF),Color.FromArgb(0x7A,0x35,0xCF,0xFF),Color.FromArgb(0x4C,0x52,0xBF,0xFF),Color.FromArgb(0x3A,0x0D,0x1B,0x33),Color.FromArgb(0x5A,0x1C,0xE1,0x7A),Color.FromArgb(0x5A,0xFF,0x4C,0x78)),
+                ["Purple"]  =(Color.FromRgb(0xB6,0x7B,0xFF),Color.FromArgb(0x80,0xA1,0x4D,0xFF),Color.FromArgb(0x4C,0xB1,0x86,0xFF),Color.FromArgb(0x3A,0x17,0x12,0x3A),Color.FromArgb(0x5A,0x38,0xD9,0x9E),Color.FromArgb(0x5A,0xFF,0x5E,0x98)),
+                ["Emerald"] =(Color.FromRgb(0x43,0xF2,0xC2),Color.FromArgb(0x7A,0x16,0xC4,0x98),Color.FromArgb(0x4C,0x5F,0xE4,0xC2),Color.FromArgb(0x3A,0x0A,0x1C,0x1A),Color.FromArgb(0x5A,0x27,0xE8,0x9D),Color.FromArgb(0x5A,0xFF,0x6C,0x85)),
+                ["Crimson"] =(Color.FromRgb(0xFF,0x6D,0xA8),Color.FromArgb(0x7A,0xFF,0x5B,0x93),Color.FromArgb(0x4C,0xFF,0x91,0xC2),Color.FromArgb(0x3A,0x20,0x0E,0x24),Color.FromArgb(0x5A,0x38,0xE0,0x9A),Color.FromArgb(0x5A,0xFF,0x4A,0x72)),
+                ["Gold"]    =(Color.FromRgb(0xFF,0xB8,0x30),Color.FromArgb(0x7A,0xFF,0xA0,0x20),Color.FromArgb(0x55,0xFF,0xC0,0x50),Color.FromArgb(0x38,0x1E,0x14,0x05),Color.FromArgb(0x5A,0x1C,0xE1,0x7A),Color.FromArgb(0x5A,0xFF,0x4C,0x78)),
             };
 
-            if (!map.TryGetValue(theme, out var t)) return;
+            if (!T.TryGetValue(theme, out var t)) return;
 
-            // نفس Keys بتاعة تصميمك القديم
-            Resources["AccentBrush"] = new SolidColorBrush(t.ac);
-            Resources["AccentSoftBrush"] = new SolidColorBrush(t.acSoft);
-            Resources["BorderBrush"] = new SolidColorBrush(t.border);
-            Resources["PanelBrush"] = new SolidColorBrush(t.panel);
-            Resources["SuccessBrush"] = new SolidColorBrush(t.success);
-            Resources["DangerBrush"] = new SolidColorBrush(t.danger);
+            Resources["AccentBrush"] = new SolidColorBrush(t.Ac);
+            Resources["AccentSoftBrush"] = new SolidColorBrush(t.AS);
+            Resources["BorderBrush"] = new SolidColorBrush(t.Bo);
+            Resources["PanelBrush"] = new SolidColorBrush(t.Pa);
+            Resources["SuccessBrush"] = new SolidColorBrush(t.Su);
+            Resources["DangerBrush"] = new SolidColorBrush(t.Da);
+
+            var map = new Dictionary<string, Button?>
+            {
+                ["Blue"] = SwatchBlue,
+                ["Purple"] = SwatchPurple,
+                ["Emerald"] = SwatchEmerald,
+                ["Crimson"] = SwatchCrimson,
+                ["Gold"] = SwatchGold
+            };
+
+            foreach (var kv in map)
+            {
+                if (kv.Value == null) continue;
+                kv.Value.BorderThickness = kv.Key == theme ? new Thickness(3) : new Thickness(1.5);
+                kv.Value.Opacity = kv.Key == theme ? 1.0 : 0.6;
+            }
 
             SetModeButtonVisual();
         }
 
         // ===== Tabs =====
-        private void TabCmd_Click(object sender, RoutedEventArgs e) => ShowTab("cmd");
-        private void TabOptions_Click(object sender, RoutedEventArgs e) => ShowTab("options");
+        private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
+        private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
 
         private void ShowTab(string tab)
         {
-            if (Ui<FrameworkElement>("TabCmdPanel") is FrameworkElement cmdPanel)
-                cmdPanel.Visibility = tab == "cmd" ? Visibility.Visible : Visibility.Collapsed;
+            if (TabCmdPanel == null) return;
 
-            if (Ui<FrameworkElement>("TabOptionsPanel") is FrameworkElement optPanel)
-                optPanel.Visibility = tab == "options" ? Visibility.Visible : Visibility.Collapsed;
+            TabCmdPanel.Visibility = tab == "cmd" ? Visibility.Visible : Visibility.Collapsed;
+            if (TabOptionsPanel != null)
+                TabOptionsPanel.Visibility = tab == "options" ? Visibility.Visible : Visibility.Collapsed;
 
-            var accent = Resources["AccentBrush"] as Brush ?? Brushes.Cyan;
-            var muted = Resources["TextMutedBrush"] as Brush ?? Brushes.LightGray;
+            var accent = (Brush)Resources["AccentBrush"];
+            var muted = (Brush)Resources["TextMutedBrush"];
 
-            if (Ui<Button>("TabCmdBtn") is Button cmdBtn)
+            if (TabCmdBtn != null)
             {
-                cmdBtn.Foreground = tab == "cmd" ? accent : muted;
-                cmdBtn.BorderBrush = tab == "cmd" ? accent : Brushes.Transparent;
+                TabCmdBtn.Foreground = tab == "cmd" ? accent : muted;
+                TabCmdBtn.BorderBrush = tab == "cmd" ? accent : Brushes.Transparent;
             }
 
-            if (Ui<Button>("TabOptionsBtn") is Button optBtn)
+            if (TabOptionsBtn != null)
             {
-                optBtn.Foreground = tab == "options" ? accent : muted;
-                optBtn.BorderBrush = tab == "options" ? accent : Brushes.Transparent;
+                TabOptionsBtn.Foreground = tab == "options" ? accent : muted;
+                TabOptionsBtn.BorderBrush = tab == "options" ? accent : Brushes.Transparent;
             }
         }
 
         // ===== Modes =====
-        private void FastbootMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
-        private void OdinMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
-        private void SideloadMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
-        private void ToolsMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Tools);
-        private void BackupRestoreMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.BackupRestore);
+        private void FastbootMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
+        private void OdinMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
+        private void SideloadMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
+        private void ToolsMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Tools);
+        private void BackupRestoreMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.BackupRestore);
 
         private void SwitchMode(FlashMode mode)
         {
             _mode = mode;
             _deviceChecked = false;
             _deviceConnected = false;
+
             SetModeButtonVisual();
 
-            if (Ui<FrameworkElement>("PanelFastboot") is FrameworkElement p1)
-                p1.Visibility = mode == FlashMode.Fastboot ? Visibility.Visible : Visibility.Collapsed;
-
-            if (Ui<FrameworkElement>("PanelOdin") is FrameworkElement p2)
-                p2.Visibility = mode == FlashMode.Odin ? Visibility.Visible : Visibility.Collapsed;
-
-            if (Ui<FrameworkElement>("PanelSideload") is FrameworkElement p3)
-                p3.Visibility = mode == FlashMode.Sideload ? Visibility.Visible : Visibility.Collapsed;
-
-            if (Ui<FrameworkElement>("PanelTools") is FrameworkElement p4)
-                p4.Visibility = mode == FlashMode.Tools ? Visibility.Visible : Visibility.Collapsed;
-
-            if (Ui<FrameworkElement>("PanelBackupRestore") is FrameworkElement p5)
-                p5.Visibility = mode == FlashMode.BackupRestore ? Visibility.Visible : Visibility.Collapsed;
-
-            if (Ui<TextBlock>("DeviceStatusText") is TextBlock st)
+            if (_uiReady)
             {
-                st.Text = "Not checked";
-                st.Foreground = Resources["WarningBrush"] as Brush ?? Brushes.Orange;
+                if (PanelFastboot != null) PanelFastboot.Visibility = mode == FlashMode.Fastboot ? Visibility.Visible : Visibility.Collapsed;
+                if (PanelOdin != null) PanelOdin.Visibility = mode == FlashMode.Odin ? Visibility.Visible : Visibility.Collapsed;
+                if (PanelSideload != null) PanelSideload.Visibility = mode == FlashMode.Sideload ? Visibility.Visible : Visibility.Collapsed;
+                if (PanelTools != null) PanelTools.Visibility = mode == FlashMode.Tools ? Visibility.Visible : Visibility.Collapsed;
+
+                var backupPanel = GetBackupPanel();
+                if (backupPanel != null)
+                    backupPanel.Visibility = mode == FlashMode.BackupRestore ? Visibility.Visible : Visibility.Collapsed;
+
+                if (DeviceStatusText != null)
+                {
+                    DeviceStatusText.Text = "Not checked";
+                    DeviceStatusText.Foreground = (Brush)Resources["WarningBrush"];
+                }
             }
 
             UpdateCommandPreview();
@@ -177,24 +188,20 @@ namespace MKVenomTool
 
         private void SetModeButtonVisual()
         {
-            var on = Resources["AccentSoftBrush"] as Brush ?? Brushes.DodgerBlue;
+            var on = (Brush)Resources["AccentSoftBrush"];
             var off = new SolidColorBrush(Color.FromArgb(0x2D, 0x18, 0x25, 0x3D));
 
-            foreach (var kv in new Dictionary<string, FlashMode>
-            {
-                ["FastbootBtn"] = FlashMode.Fastboot,
-                ["OdinBtn"] = FlashMode.Odin,
-                ["SideloadBtn"] = FlashMode.Sideload,
-                ["ToolsBtn"] = FlashMode.Tools,
-                ["BackupRestoreBtn"] = FlashMode.BackupRestore
-            })
-            {
-                if (Ui<Button>(kv.Key) is Button b)
-                    b.Background = _mode == kv.Value ? on : off;
-            }
+            if (FastbootBtn != null) FastbootBtn.Background = _mode == FlashMode.Fastboot ? on : off;
+            if (OdinBtn != null) OdinBtn.Background = _mode == FlashMode.Odin ? on : off;
+            if (SideloadBtn != null) SideloadBtn.Background = _mode == FlashMode.Sideload ? on : off;
+            if (ToolsBtn != null) ToolsBtn.Background = _mode == FlashMode.Tools ? on : off;
+
+            var backupBtn = GetBackupModeButton();
+            if (backupBtn != null)
+                backupBtn.Background = _mode == FlashMode.BackupRestore ? on : off;
         }
 
-        // ===== Build rows =====
+        // ===== Rows =====
         private void BuildFastbootRows()
         {
             _fbRows.Clear();
@@ -202,7 +209,7 @@ namespace MKVenomTool
                 _fbRows.Add(new FlashRow { Key = e.Item1, Label = e.Item2 });
 
             foreach (var r in _fbRows)
-                r.PropertyChanged += (_, ev) => { if (ev.PropertyName == nameof(FlashRow.FilePath)) UpdateCommandPreview(); };
+                r.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(FlashRow.FilePath)) UpdateCommandPreview(); };
         }
 
         private void BuildOdinRows()
@@ -212,17 +219,21 @@ namespace MKVenomTool
                 _odinRows.Add(new FlashRow { Key = e.Item1, Label = e.Item2 });
 
             foreach (var r in _odinRows)
-                r.PropertyChanged += (_, ev) => { if (ev.PropertyName == nameof(FlashRow.FilePath)) UpdateCommandPreview(); };
+                r.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(FlashRow.FilePath)) UpdateCommandPreview(); };
         }
 
         // ===== Browse =====
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string key) return;
-            var row = _fbRows.FirstOrDefault(r => r.Key == key);
-            if (row == null) return;
+            var row = _fbRows.FirstOrDefault(r => r.Key == key); if (row == null) return;
 
-            var dlg = new OpenFileDialog { Filter = "Flash files (*.img;*.bin;*.zip)|*.img;*.bin;*.zip|All files (*.*)|*.*", CheckFileExists = true };
+            var dlg = new OpenFileDialog
+            {
+                Filter = "Flash files (*.img;*.bin;*.zip)|*.img;*.bin;*.zip|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+
             if (dlg.ShowDialog() == true)
             {
                 row.FilePath = dlg.FileName;
@@ -234,10 +245,14 @@ namespace MKVenomTool
         private void BrowseOdin_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string key) return;
-            var row = _odinRows.FirstOrDefault(r => r.Key == key);
-            if (row == null) return;
+            var row = _odinRows.FirstOrDefault(r => r.Key == key); if (row == null) return;
 
-            var dlg = new OpenFileDialog { Filter = "Flash files (*.tar;*.md5;*.img;*.bin)|*.tar;*.md5;*.img;*.bin|All files (*.*)|*.*", CheckFileExists = true };
+            var dlg = new OpenFileDialog
+            {
+                Filter = "Flash files (*.tar;*.md5;*.img;*.bin)|*.tar;*.md5;*.img;*.bin|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+
             if (dlg.ShowDialog() == true)
             {
                 row.FilePath = dlg.FileName;
@@ -246,68 +261,71 @@ namespace MKVenomTool
             }
         }
 
-        private void BrowsePit_Click(object sender, RoutedEventArgs e)
+        private void BrowsePit_Click(object s, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Filter = "PIT files (*.pit)|*.pit|All files (*.*)|*.*", CheckFileExists = true };
             if (dlg.ShowDialog() == true)
             {
                 _pitFilePath = dlg.FileName;
-                if (Ui<TextBox>("PitPathBox") is TextBox pit) pit.Text = _pitFilePath;
+                if (PitPathBox != null) PitPathBox.Text = _pitFilePath;
                 AppendLog($"PIT: {_pitFilePath}");
                 UpdateCommandPreview();
             }
         }
 
-        private void ClearPit_Click(object sender, RoutedEventArgs e)
+        private void ClearPit_Click(object s, RoutedEventArgs e)
         {
             _pitFilePath = "";
-            if (Ui<TextBox>("PitPathBox") is TextBox pit) pit.Text = "";
+            if (PitPathBox != null) PitPathBox.Text = "";
             AppendLog("PIT cleared.");
             UpdateCommandPreview();
         }
 
-        private void BrowseSideload_Click(object sender, RoutedEventArgs e)
+        private void BrowseSideload_Click(object s, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Filter = "ZIP files (*.zip)|*.zip|All files (*.*)|*.*", CheckFileExists = true };
-            if (dlg.ShowDialog() == true)
+            if (dlg.ShowDialog() == true && SideloadPathBox != null)
             {
-                if (Ui<TextBox>("SideloadPathBox") is TextBox t) t.Text = dlg.FileName;
+                SideloadPathBox.Text = dlg.FileName;
                 AppendLog($"Sideload: {dlg.FileName}");
                 UpdateCommandPreview();
             }
         }
 
-        private void BrowseApk_Click(object sender, RoutedEventArgs e)
+        private void BrowseApk_Click(object s, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Filter = "APK files (*.apk)|*.apk|All files (*.*)|*.*", CheckFileExists = true };
-            if (dlg.ShowDialog() == true)
+            if (dlg.ShowDialog() == true && FindName("ApkPathBox") is TextBox apk)
             {
-                if (Ui<TextBox>("ApkPathBox") is TextBox t) t.Text = dlg.FileName;
+                apk.Text = dlg.FileName;
                 AppendLog($"APK: {dlg.FileName}");
             }
         }
 
         // ===== Detect =====
-        private async void DetectDevice_Click(object sender, RoutedEventArgs e)
+        private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
-            if (Ui<TextBlock>("DeviceStatusText") is TextBlock st)
+            if (DeviceStatusText != null)
             {
-                st.Text = "Checking...";
-                st.Foreground = Resources["WarningBrush"] as Brush ?? Brushes.Orange;
+                DeviceStatusText.Text = "Checking...";
+                DeviceStatusText.Foreground = (Brush)Resources["WarningBrush"];
             }
 
             var r = await DetectAsync();
             _deviceChecked = true;
             _deviceConnected = r.ok;
 
-            if (Ui<TextBlock>("DeviceStatusText") is TextBlock status)
+            if (DeviceStatusText != null)
             {
-                status.Text = r.text;
-                status.Foreground = r.ok ? new SolidColorBrush(Color.FromRgb(77, 255, 154)) : new SolidColorBrush(Color.FromRgb(255, 122, 122));
+                DeviceStatusText.Text = r.text;
+                DeviceStatusText.Foreground = r.ok
+                    ? new SolidColorBrush(Color.FromRgb(77, 255, 154))
+                    : new SolidColorBrush(Color.FromRgb(255, 122, 122));
             }
 
             foreach (var line in r.log.Split('\n'))
-                if (!string.IsNullOrWhiteSpace(line)) AppendLog(line.Trim());
+                if (!string.IsNullOrWhiteSpace(line))
+                    AppendLog(line.Trim());
         }
 
         private async Task<(bool ok, string text, string log)> DetectAsync()
@@ -316,7 +334,9 @@ namespace MKVenomTool
             {
                 var r = await RunAsync("platform-tools", "fastboot", "devices", 12000);
                 bool ok = (r.Out + r.Err).ToLowerInvariant().Contains("fastboot");
-                return ok ? (true, "FASTBOOT CONNECTED", "Fastboot device detected.") : (false, "NO FASTBOOT DEVICE", "No fastboot device found.");
+                return ok
+                    ? (true, "FASTBOOT CONNECTED", "Fastboot device detected.")
+                    : (false, "NO FASTBOOT DEVICE", "No fastboot device found.");
             }
 
             if (_mode == FlashMode.Sideload || _mode == FlashMode.BackupRestore)
@@ -324,24 +344,23 @@ namespace MKVenomTool
                 var r = await RunAsync("platform-tools", "adb", "devices", 12000);
                 var m = (r.Out + r.Err).ToLowerInvariant();
                 bool ok = m.Contains("\tdevice") || m.Contains("\tsideload");
-                return ok ? (true, "ADB CONNECTED", "ADB device detected.") : (false, "NO ADB DEVICE", "No ADB device found.");
+                return ok
+                    ? (true, "ADB CONNECTED", "ADB device detected.")
+                    : (false, "NO ADB DEVICE", "No ADB device found.");
             }
 
-            // Odin mode -> ekoflash list
-            var list = await RunAsync("odin", "ekoflash", "--list", 15000);
-            var full = (list.Out + "\n" + list.Err).Trim();
-            var lower = full.ToLowerInvariant();
+            // Odin mode: use ekoflash --list
+            if (!ToolsManager.ExeExists("odin", "ekoflash"))
+                return (false, "EKOFLASH MISSING", "ekoflash.exe not found.");
 
-            if (list.Code == 0 &&
-                !lower.Contains("no device") &&
-                !lower.Contains("not found") &&
-                !lower.Contains("0 device"))
-            {
-                var nonEmpty = full.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length > 0;
-                if (nonEmpty) return (true, "DOWNLOAD MODE READY", full);
-            }
+            var od = await RunAsync("odin", "ekoflash", "--list", 15000);
+            var full = (od.Out + "\n" + od.Err).Trim();
+            var l = full.ToLowerInvariant();
 
-            // Fallback USB probe for Samsung VID
+            if (od.Code == 0 && !l.Contains("no device") && !l.Contains("not found") && !l.Contains("0 device"))
+                return (true, "DOWNLOAD MODE READY", string.IsNullOrWhiteSpace(full) ? "Download mode detected." : full);
+
+            // fallback USB VID
             var pnp = await RunProcessAsync("pnputil.exe", "/enum-devices /connected", 12000);
             bool samsung = (pnp.Out + pnp.Err).ToUpperInvariant().Contains("VID_04E8");
             return samsung
@@ -359,7 +378,6 @@ namespace MKVenomTool
                 AppendLog($"No file for {key}.");
                 return;
             }
-
             await FlashFastbootAsync(new List<FlashRow> { row });
         }
 
@@ -372,23 +390,13 @@ namespace MKVenomTool
                 AppendLog($"No file for {key}.");
                 return;
             }
-
             await FlashOdinAsync(new List<FlashRow> { row });
         }
 
-        private async void StartFlashing_Click(object sender, RoutedEventArgs e)
+        private async void StartFlashing_Click(object s, RoutedEventArgs e)
         {
-            if (!_deviceChecked)
-            {
-                AppendLog("Press Detect Device first.");
-                return;
-            }
-
-            if (!_deviceConnected)
-            {
-                AppendLog("Device not connected.");
-                return;
-            }
+            if (!_deviceChecked) { AppendLog("Press Detect Device first."); return; }
+            if (!_deviceConnected) { AppendLog("Device not connected."); return; }
 
             if (_mode == FlashMode.Fastboot)
             {
@@ -450,28 +458,18 @@ namespace MKVenomTool
             {
                 switch (row.Key.ToUpperInvariant())
                 {
-                    case "BL":
-                        sb.Append($" -b \"{row.FilePath}\"");
-                        break;
-                    case "AP":
-                        sb.Append($" -a \"{row.FilePath}\"");
-                        break;
-                    case "CP":
-                        sb.Append($" -c \"{row.FilePath}\"");
-                        break;
-                    case "CSC":
-                        sb.Append($" -s \"{row.FilePath}\"");
-                        break;
-                    case "USERDATA":
-                        sb.Append($" -u \"{row.FilePath}\"");
-                        break;
+                    case "BL": sb.Append($" -b \"{row.FilePath}\""); break;
+                    case "AP": sb.Append($" -a \"{row.FilePath}\""); break;
+                    case "CP": sb.Append($" -c \"{row.FilePath}\""); break;
+                    case "CSC": sb.Append($" -s \"{row.FilePath}\""); break;
+                    case "USERDATA": sb.Append($" -u \"{row.FilePath}\""); break;
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(_pitFilePath))
                 sb.Append($" --use-pit \"{_pitFilePath}\"");
 
-            bool autoReboot = IsChecked("OptAutoReboot", "AutoRebootCheck");
+            bool autoReboot = IsChecked("OptAutoReboot", "AutoRebootChk", "AutoRebootCheck");
             if (!autoReboot) sb.Append(" --no-reboot");
 
             return sb.ToString().Trim();
@@ -527,111 +525,113 @@ namespace MKVenomTool
         }
 
         // ===== Sideload =====
-        private async void StartSideload_Click(object sender, RoutedEventArgs e) => await StartSideloadInternal();
+        private async void StartSideload_Click(object s, RoutedEventArgs e) => await StartSideloadInternal();
 
         private async Task StartSideloadInternal()
         {
-            string path = Ui<TextBox>("SideloadPathBox")?.Text.Trim() ?? "";
-            if (string.IsNullOrEmpty(path))
-            {
-                AppendLog("Select an OTA ZIP first.");
-                return;
-            }
+            string path = SideloadPathBox?.Text.Trim() ?? "";
+            if (string.IsNullOrEmpty(path)) { AppendLog("Select an OTA ZIP first."); return; }
 
             AppendLog($"> adb sideload \"{path}\"");
             var r = await RunAsync("platform-tools", "adb", $"sideload \"{path}\"", 30 * 60 * 1000);
 
             if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
             if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+
             AppendLog(r.Code == 0 ? "Sideload complete ✓" : "Sideload FAILED.");
         }
 
-        // ===== Tools =====
+        // ===== Quick tools =====
         private async void QuickCmd_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string cmd) return;
             AppendLog($"> {cmd}");
 
             var parts = cmd.Split(' ', 2);
-            var exe = parts[0];
-            var args = parts.Length > 1 ? parts[1] : "";
+            var r = await RunAsync("platform-tools", parts[0], parts.Length > 1 ? parts[1] : "", 30000);
 
-            var r = await RunAsync("platform-tools", exe, args, 30000);
             if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
             if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
         }
 
         private async void RunCustomAdb_Click(object sender, RoutedEventArgs e)
         {
-            string args = Ui<TextBox>("CustomAdbBox")?.Text.Trim() ?? "";
+            if (FindName("CustomAdbBox") is not TextBox box) { AppendLog("CustomAdbBox not found."); return; }
+            string args = box.Text.Trim();
             if (string.IsNullOrEmpty(args)) { AppendLog("Enter adb args."); return; }
 
             AppendLog($"> adb {args}");
             var r = await RunAsync("platform-tools", "adb", args, 60000);
-
             if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
             if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
         }
 
         private async void RunCustomFastboot_Click(object sender, RoutedEventArgs e)
         {
-            string args = Ui<TextBox>("CustomFastbootBox")?.Text.Trim() ?? "";
+            if (FindName("CustomFastbootBox") is not TextBox box) { AppendLog("CustomFastbootBox not found."); return; }
+            string args = box.Text.Trim();
             if (string.IsNullOrEmpty(args)) { AppendLog("Enter fastboot args."); return; }
 
             AppendLog($"> fastboot {args}");
             var r = await RunAsync("platform-tools", "fastboot", args, 60000);
-
             if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
             if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
         }
 
         private async void InstallApk_Click(object sender, RoutedEventArgs e)
         {
-            string p = Ui<TextBox>("ApkPathBox")?.Text.Trim() ?? "";
+            if (FindName("ApkPathBox") is not TextBox box) { AppendLog("ApkPathBox not found."); return; }
+            string p = box.Text.Trim();
             if (string.IsNullOrEmpty(p)) { AppendLog("Select APK first."); return; }
 
             AppendLog($"> adb install \"{p}\"");
             var r = await RunAsync("platform-tools", "adb", $"install \"{p}\"", 120000);
-
             if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
             if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
             AppendLog(r.Code == 0 ? "APK installed ✓" : "APK install FAILED.");
         }
 
-        private void LaunchZadig_Click(object sender, RoutedEventArgs e)
+        private async void CmdRebootSys_Click(object sender, RoutedEventArgs e)
+        {
+            var r = await RunAsync("platform-tools", "adb", "reboot", 15000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+        }
+
+        private async void CmdRebootBl_Click(object sender, RoutedEventArgs e)
+        {
+            var r = await RunAsync("platform-tools", "adb", "reboot bootloader", 15000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+        }
+
+        private async void CmdRebootRec_Click(object sender, RoutedEventArgs e)
+        {
+            var r = await RunAsync("platform-tools", "adb", "reboot recovery", 15000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+        }
+
+        private void LaunchZadig_Click(object s, RoutedEventArgs e)
         {
             string exe = ToolsManager.GetExePath("zadig", "zadig");
-            if (!File.Exists(exe))
-            {
-                AppendLog("zadig.exe not found.");
-                return;
-            }
+            if (!File.Exists(exe)) { AppendLog("zadig.exe not found."); return; }
 
             AppendLog($"Launching Zadig: {exe}");
-            try
-            {
-                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                AppendLog($"Launch failed: {ex.Message}");
-            }
+            try { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true }); }
+            catch (Exception ex) { AppendLog($"Launch failed: {ex.Message}"); }
         }
 
         // ===== Action bar =====
-        private async void WipeData_Click(object sender, RoutedEventArgs e)
+        private async void WipeData_Click(object s, RoutedEventArgs e)
         {
-            if (_mode != FlashMode.Fastboot)
-            {
-                AppendLog("Wipe: Fastboot mode only.");
-                return;
-            }
+            if (_mode != FlashMode.Fastboot) { AppendLog("Wipe: Fastboot mode only."); return; }
 
             var r = await RunAsync("platform-tools", "fastboot", "-w", 600000);
             AppendLog(r.Code == 0 ? "Wipe done." : $"Wipe FAILED (exit {r.Code}). {r.Err.Trim()}");
         }
 
-        private async void RebootSystem_Click(object sender, RoutedEventArgs e)
+        private async void RebootSystem_Click(object s, RoutedEventArgs e)
         {
             if (_mode == FlashMode.Fastboot || _mode == FlashMode.Tools)
             {
@@ -645,19 +645,19 @@ namespace MKVenomTool
             }
         }
 
-        private void ResetAll_Click(object sender, RoutedEventArgs e)
+        private void ResetAll_Click(object s, RoutedEventArgs e)
         {
             foreach (var r in _fbRows) r.FilePath = "";
             foreach (var r in _odinRows) r.FilePath = "";
+
             _pitFilePath = "";
+            if (PitPathBox != null) PitPathBox.Text = "";
+            if (SideloadPathBox != null) SideloadPathBox.Text = "";
+            if (FindName("ApkPathBox") is TextBox apk) apk.Text = "";
+            if (FindName("CustomAdbBox") is TextBox cadb) cadb.Text = "";
+            if (FindName("CustomFastbootBox") is TextBox cfb) cfb.Text = "";
 
-            if (Ui<TextBox>("PitPathBox") is TextBox pit) pit.Text = "";
-            if (Ui<TextBox>("SideloadPathBox") is TextBox sideload) sideload.Text = "";
-            if (Ui<TextBox>("ApkPathBox") is TextBox apk) apk.Text = "";
-            if (Ui<TextBox>("CustomAdbBox") is TextBox cadb) cadb.Text = "";
-            if (Ui<TextBox>("CustomFastbootBox") is TextBox cfb) cfb.Text = "";
-
-            if (Ui<TextBox>("CommandPreviewBox") is TextBox cp) cp.Clear();
+            if (CommandPreviewBox != null) CommandPreviewBox.Clear();
 
             AppendLog("All cleared.");
             UpdateCommandPreview();
@@ -666,6 +666,8 @@ namespace MKVenomTool
         // ===== Preview / log =====
         private void UpdateCommandPreview()
         {
+            if (CommandPreviewBox == null) return;
+
             var lines = new List<string>();
 
             if (_mode == FlashMode.Fastboot)
@@ -678,31 +680,25 @@ namespace MKVenomTool
             {
                 var selected = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
                 var args = BuildOdinCommandArgs(selected);
-                if (!string.IsNullOrWhiteSpace(args))
-                    lines.Add($"ekoflash {args}");
+                if (!string.IsNullOrWhiteSpace(args)) lines.Add($"ekoflash {args}");
             }
-            else if (_mode == FlashMode.Sideload)
+            else if (_mode == FlashMode.Sideload && SideloadPathBox != null && !string.IsNullOrWhiteSpace(SideloadPathBox.Text))
             {
-                var p = Ui<TextBox>("SideloadPathBox")?.Text;
-                if (!string.IsNullOrWhiteSpace(p))
-                    lines.Add($"adb sideload \"{p}\"");
+                lines.Add($"adb sideload \"{SideloadPathBox.Text}\"");
             }
             else if (_mode == FlashMode.BackupRestore)
             {
                 lines.Add("Backup/Restore mode uses adb shell su -c + tar + pull/push");
             }
 
-            if (Ui<TextBox>("CommandPreviewBox") is TextBox box)
-                box.Text = lines.Count == 0 ? "No command queued." : string.Join(Environment.NewLine, lines);
+            CommandPreviewBox.Text = lines.Count == 0 ? "No command queued." : string.Join(Environment.NewLine, lines);
         }
 
         private void AppendLog(string msg)
         {
-            if (!_uiReady) return;
-            if (Ui<TextBox>("LogBox") is not TextBox log) return;
-
-            log.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}{Environment.NewLine}");
-            log.ScrollToEnd();
+            if (!_uiReady || LogBox == null) return;
+            LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}{Environment.NewLine}");
+            LogBox.ScrollToEnd();
         }
 
         // ===== Process =====
@@ -727,8 +723,8 @@ namespace MKVenomTool
                 var o = new StringBuilder();
                 var er = new StringBuilder();
 
-                p.OutputDataReceived += (_, ev) => { if (ev.Data != null) o.AppendLine(ev.Data); };
-                p.ErrorDataReceived += (_, ev) => { if (ev.Data != null) er.AppendLine(ev.Data); };
+                p.OutputDataReceived += (_, e) => { if (e.Data != null) o.AppendLine(e.Data); };
+                p.ErrorDataReceived += (_, e) => { if (e.Data != null) er.AppendLine(e.Data); };
 
                 p.Start();
                 p.BeginOutputReadLine();
@@ -750,15 +746,22 @@ namespace MKVenomTool
             }
         }
 
-        // ===== Backup (minimal) =====
+        // ===== Backup (optional, safe) =====
         private async void LoadApps_Click(object sender, RoutedEventArgs e)
         {
             _backupApps.Clear();
             AppendLog("Loading apps list...");
-            var apps = await BackupService.GetInstalledAppsAsync(AppendLog);
 
+            var apps = await BackupService.GetInstalledAppsAsync(AppendLog);
             foreach (var a in apps)
-                _backupApps.Add(new BackupAppRow { PackageName = a.PackageName, DisplayName = a.DisplayName });
+            {
+                _backupApps.Add(new BackupAppRow
+                {
+                    PackageName = a.PackageName,
+                    DisplayName = a.DisplayName,
+                    IconLetter = string.IsNullOrWhiteSpace(a.DisplayName) ? "?" : a.DisplayName[..1].ToUpperInvariant()
+                });
+            }
 
             AppendLog($"Apps loaded: {_backupApps.Count}");
         }
