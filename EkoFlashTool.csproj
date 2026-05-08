@@ -1,39 +1,68 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
 
+    <!-- اسم الـ assembly ثابت دايماً -->
     <AssemblyName>EkoFlashTool</AssemblyName>
     <RootNamespace>MKVenomTool</RootNamespace>
+    <Product>MKVenomTool</Product>
+
+    <!-- أيقونة التطبيق -->
     <ApplicationIcon>app.ico</ApplicationIcon>
 
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
+    <!-- Publish settings -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
 
+  <!-- ══ الأدوات المضمنة كـ EmbeddedResource ══
+       LogicalName يطابق تماماً ما يبحث عنه ToolsManager.cs -->
   <ItemGroup>
-    <PackageReference Include="SharpZipLib" Version="1.4.2" />
+
+    <!-- platform-tools -->
+    <EmbeddedResource Include="adb.exe">
+      <LogicalName>res.pt.adb.exe</LogicalName>
+    </EmbeddedResource>
+
+    <EmbeddedResource Include="fastboot.exe">
+      <LogicalName>res.pt.fastboot.exe</LogicalName>
+    </EmbeddedResource>
+
+    <EmbeddedResource Include="AdbWinApi.dll">
+      <LogicalName>res.pt.AdbWinApi.dll</LogicalName>
+    </EmbeddedResource>
+
+    <EmbeddedResource Include="AdbWinUsbApi.dll">
+      <LogicalName>res.pt.AdbWinUsbApi.dll</LogicalName>
+    </EmbeddedResource>
+
+    <!-- odin backend – يتولد من C++ build في CI -->
+    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')">
+      <LogicalName>res.ok.ekoflash.exe</LogicalName>
+    </EmbeddedResource>
+
+    <!-- libusb -->
+    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')">
+      <LogicalName>res.ok.libusb.dll</LogicalName>
+    </EmbeddedResource>
+
+    <!-- zadig -->
+    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')">
+      <LogicalName>res.zd.zadig.exe</LogicalName>
+    </EmbeddedResource>
+
+    <!-- أيقونة التطبيق -->
+    <Resource Include="app.ico" Condition="Exists('app.ico')"/>
+
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="app.ico">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="adb.exe" Condition="Exists('adb.exe')" LogicalName="res.pt.adb.exe" />
-    <EmbeddedResource Include="fastboot.exe" Condition="Exists('fastboot.exe')" LogicalName="res.pt.fastboot.exe" />
-    <EmbeddedResource Include="AdbWinApi.dll" Condition="Exists('AdbWinApi.dll')" LogicalName="res.pt.AdbWinApi.dll" />
-    <EmbeddedResource Include="AdbWinUsbApi.dll" Condition="Exists('AdbWinUsbApi.dll')" LogicalName="res.pt.AdbWinUsbApi.dll" />
-    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')" LogicalName="res.ok.ekoflash.exe" />
-    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')" LogicalName="res.ok.libusb.dll" />
-    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')" LogicalName="res.zd.zadig.exe" />
-  </ItemGroup>
 </Project>
