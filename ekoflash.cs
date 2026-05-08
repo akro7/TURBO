@@ -1,4 +1,3 @@
-using ICSharpCode.SharpZipLib.Tar;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -9,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,14 +18,14 @@ namespace MKVenomTool
     public partial class MainWindow : Window
     {
         private enum FlashMode { Fastboot, Odin, Sideload, Tools, BackupRestore }
-        
+
         private FlashMode _mode = FlashMode.Fastboot;
-        private ObservableCollection<FlashRow> _fbRows = new();
-        private ObservableCollection<FlashRow> _odinRows = new();
+        private readonly ObservableCollection<FlashRow> _fbRows = new();
+        private readonly ObservableCollection<FlashRow> _odinRows = new();
         private readonly ObservableCollection<BackupAppRow> _backupApps = new();
         private readonly ObservableCollection<BackupSetRow> _backupSets = new();
 
-        private string _pitFilePath = "";
+        private string _pitFilePath = string.Empty;
         private bool _uiReady;
 
         public MainWindow()
@@ -35,51 +33,52 @@ namespace MKVenomTool
             InitializeComponent();
             _uiReady = true;
 
-            // بناء الصفوف
             BuildFastbootRows();
             BuildOdinRows();
-            
-            // ربط القوائم بالبيانات
-            if (RowsList != null) RowsList.ItemsSource = _fbRows;
-            if (OdinRowsList != null) OdinRowsList.ItemsSource = _odinRows;
-            
+
+            RowsList.ItemsSource = _fbRows;
+            OdinRowsList.ItemsSource = _odinRows;
+
             if (FindName("BackupAppsList") is ListView appsList) appsList.ItemsSource = _backupApps;
             if (FindName("BackupSetsList") is ListView setsList) setsList.ItemsSource = _backupSets;
 
             ApplyTheme("Blue");
-            SwitchMode(FlashMode.Fastboot);
+            SwitchMode(FlashMode.Odin);
             ShowTab("cmd");
-            
-            AppendLog("MK Venom Tool Ready.");
+
+            AppendLog("UI initialized.");
+            AppendLog($"Odin engine path: {ToolsManager.EkoFlashExe}");
         }
 
-        // --- الألوان والسمات ---
-        private void Swatch_Click(object s, RoutedEventArgs e)
+        // Theme
+        private void Swatch_Click(object sender, RoutedEventArgs e)
         {
-            if (s is Button b && b.Tag is string n) ApplyTheme(n);
+            if (sender is Button b && b.Tag is string theme)
+                ApplyTheme(theme);
         }
 
         private void ApplyTheme(string theme)
         {
-            var colors = new Dictionary<string, (Color Ac, Color AS)>
+            var colors = new Dictionary<string, (Color ac, Color acSoft)>
             {
-                ["Blue"]    = (Color.FromRgb(0x37,0xCF,0xFF), Color.FromArgb(0x7A,0x35,0xCF,0xFF)),
-                ["Purple"]  = (Color.FromRgb(0xB6,0x7B,0xFF), Color.FromArgb(0x80,0xA1,0x4D,0xFF)),
-                ["Emerald"] = (Color.FromRgb(0x43,0xF2,0xC2), Color.FromArgb(0x7A,0x16,0xC4,0x98)),
-                ["Crimson"] = (Color.FromRgb(0xFF,0x6D,0xA8), Color.FromArgb(0x7A,0xFF,0x5B,0x93)),
-                ["Gold"]    = (Color.FromRgb(0xFF,0xB8,0x30), Color.FromArgb(0x7A,0xFF,0xA0,0x20)),
+                ["Blue"] = (Color.FromRgb(0x37, 0xCF, 0xFF), Color.FromRgb(0x30, 0x5A, 0x89)),
+                ["Purple"] = (Color.FromRgb(0xB6, 0x7B, 0xFF), Color.FromRgb(0x5E, 0x46, 0x86)),
+                ["Emerald"] = (Color.FromRgb(0x43, 0xF2, 0xC2), Color.FromRgb(0x1F, 0x6A, 0x59)),
+                ["Crimson"] = (Color.FromRgb(0xFF, 0x6D, 0xA8), Color.FromRgb(0x7D, 0x2D, 0x4E)),
+                ["Gold"] = (Color.FromRgb(0xFF, 0xB8, 0x30), Color.FromRgb(0x7A, 0x56, 0x1A))
             };
 
             if (colors.TryGetValue(theme, out var c))
             {
-                Resources["AccentBrush"] = new SolidColorBrush(c.Ac);
-                Resources["AccentSoftBrush"] = new SolidColorBrush(c.AS);
+                Resources["AccentBrush"] = new SolidColorBrush(c.ac);
+                Resources["AccentSoftBrush"] = new SolidColorBrush(c.acSoft);
             }
         }
 
-        // --- التبويبات ---
-        private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
-        private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
+        // Tabs
+        private void TabCmd_Click(object sender, RoutedEventArgs e) => ShowTab("cmd");
+        private void TabOptions_Click(object sender, RoutedEventArgs e) => ShowTab("options");
+
         private void ShowTab(string tab)
         {
             if (TabCmdPanel == null || TabOptionsPanel == null) return;
@@ -87,12 +86,12 @@ namespace MKVenomTool
             TabOptionsPanel.Visibility = tab == "options" ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // --- الأوضاع ---
-        private void FastbootMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
-        private void OdinMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
-        private void SideloadMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
-        private void ToolsMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Tools);
-        private void BackupRestoreMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.BackupRestore);
+        // Modes
+        private void FastbootMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
+        private void OdinMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
+        private void SideloadMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
+        private void ToolsMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Tools);
+        private void BackupRestoreMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.BackupRestore);
 
         private void SwitchMode(FlashMode mode)
         {
@@ -104,8 +103,8 @@ namespace MKVenomTool
             PanelSideload.Visibility = mode == FlashMode.Sideload ? Visibility.Visible : Visibility.Collapsed;
             PanelTools.Visibility = mode == FlashMode.Tools ? Visibility.Visible : Visibility.Collapsed;
 
-            if (FindName("PanelBackupRestore") is Grid bk) 
-                bk.Visibility = mode == FlashMode.BackupRestore ? Visibility.Visible : Visibility.Collapsed;
+            if (FindName("PanelBackupRestore") is Grid backupPanel)
+                backupPanel.Visibility = mode == FlashMode.BackupRestore ? Visibility.Visible : Visibility.Collapsed;
 
             UpdateCommandPreview();
         }
@@ -114,99 +113,332 @@ namespace MKVenomTool
         {
             _fbRows.Clear();
             foreach (var p in new[] { "boot", "recovery", "system", "vendor", "vbmeta", "userdata" })
-                _fbRows.Add(new FlashRow { Key = p, Label = p.ToUpper() });
+                _fbRows.Add(new FlashRow { Key = p, Label = p.ToUpperInvariant() });
         }
 
         private void BuildOdinRows()
         {
             _odinRows.Clear();
-            foreach (var s in new[] { "BL", "AP", "CP", "CSC", "USERDATA" })
-                _odinRows.Add(new FlashRow { Key = s, Label = s });
+            foreach (var slot in new[] { "BL", "AP", "CP", "CSC", "USERDATA" })
+                _odinRows.Add(new FlashRow { Key = slot, Label = slot });
         }
 
-        // --- أزرار التصفح ---
-        private void FbBrowse_Click(object s, RoutedEventArgs e)
+        // Browse actions
+        private void FbBrowse_Click(object sender, RoutedEventArgs e)
         {
-            if (s is Button b && b.Tag is string k) {
-                var dlg = new OpenFileDialog { Filter = "Image Files|*.img" };
-                if (dlg.ShowDialog() == true) _fbRows.First(r => r.Key == k).FilePath = dlg.FileName;
+            if (sender is not Button b || b.Tag is not string key) return;
+            var dlg = new OpenFileDialog { Filter = "Image Files|*.img;*.bin|All Files|*.*" };
+            if (dlg.ShowDialog() == true)
+            {
+                var row = _fbRows.FirstOrDefault(r => r.Key == key);
+                if (row != null) row.FilePath = dlg.FileName;
+                UpdateCommandPreview();
             }
         }
 
-        private void OdinBrowse_Click(object s, RoutedEventArgs e)
+        private void OdinBrowse_Click(object sender, RoutedEventArgs e)
         {
-            if (s is Button b && b.Tag is string k) {
-                var dlg = new OpenFileDialog { Filter = "Odin Files|*.tar;*.md5" };
-                if (dlg.ShowDialog() == true) _odinRows.First(r => r.Key == k).FilePath = dlg.FileName;
+            if (sender is not Button b || b.Tag is not string key) return;
+            var dlg = new OpenFileDialog { Filter = "Odin Files|*.tar;*.md5;*.img;*.bin|All Files|*.*" };
+            if (dlg.ShowDialog() == true)
+            {
+                var row = _odinRows.FirstOrDefault(r => r.Key == key);
+                if (row != null) row.FilePath = dlg.FileName;
+                UpdateCommandPreview();
             }
         }
 
-        private void BrowsePit_Click(object s, RoutedEventArgs e)
+        private void BrowsePit_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new OpenFileDialog { Filter = "PIT|*.pit" };
-            if (dlg.ShowDialog() == true) { _pitFilePath = dlg.FileName; PitPathBox.Text = _pitFilePath; }
-        }
-
-        private void ClearPit_Click(object s, RoutedEventArgs e) { _pitFilePath = ""; PitPathBox.Text = ""; }
-
-        private void SideloadBrowse_Click(object s, RoutedEventArgs e)
-        {
-            var dlg = new OpenFileDialog { Filter = "Zip Files|*.zip" };
-            if (dlg.ShowDialog() == true) SideloadPathBox.Text = dlg.FileName;
-        }
-
-        // --- العمليات ---
-        private async void DetectDevice_Click(object s, RoutedEventArgs e)
-        {
-            DeviceStatusText.Text = "Checking...";
-            await Task.Delay(1000);
-            DeviceStatusText.Text = "CONNECTED";
-            AppendLog("Device detected.");
-        }
-
-        private async void StartFlashing_Click(object s, RoutedEventArgs e)
-        {
-            AppendLog($"Starting {_mode} operation...");
-            await Task.Delay(2000);
-            AppendLog("Task Completed.");
-        }
-
-        private void FbFlash_Click(object s, RoutedEventArgs e) => AppendLog("Flashing single partition...");
-        private void OdinFlashSingle_Click(object s, RoutedEventArgs e) => AppendLog("Flashing Odin slot...");
-
-        private void CmdRebootSys_Click(object s, RoutedEventArgs e) => AppendLog("Rebooting System...");
-        private void CmdRebootBl_Click(object s, RoutedEventArgs e) => AppendLog("Rebooting Bootloader...");
-        private void CmdRebootRec_Click(object s, RoutedEventArgs e) => AppendLog("Rebooting Recovery...");
-        private void LaunchZadig_Click(object s, RoutedEventArgs e) => AppendLog("Launching Zadig...");
-
-        private void LoadApps_Click(object s, RoutedEventArgs e) => AppendLog("Loading apps...");
-        private void StartBackup_Click(object s, RoutedEventArgs e) => AppendLog("Starting backup...");
-
-        private void AppendLog(string msg)
-        {
-            if (LogBox != null) {
-                LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
-                LogBox.ScrollToEnd();
+            var dlg = new OpenFileDialog { Filter = "PIT Files|*.pit|All Files|*.*" };
+            if (dlg.ShowDialog() == true)
+            {
+                _pitFilePath = dlg.FileName;
+                PitPathBox.Text = _pitFilePath;
+                UpdateCommandPreview();
             }
+        }
+
+        private void ClearPit_Click(object sender, RoutedEventArgs e)
+        {
+            _pitFilePath = string.Empty;
+            PitPathBox.Text = string.Empty;
+            UpdateCommandPreview();
+        }
+
+        private void SideloadBrowse_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog { Filter = "ZIP Files|*.zip|All Files|*.*" };
+            if (dlg.ShowDialog() == true)
+            {
+                SideloadPathBox.Text = dlg.FileName;
+                UpdateCommandPreview();
+            }
+        }
+
+        // Main operations
+        private async void DetectDevice_Click(object sender, RoutedEventArgs e)
+        {
+            DeviceStatusText.Text = "Device: Checking...";
+            var result = await RunProcessAsync(ToolsManager.AdbExe, "devices", 15000);
+
+            var hasDevice = result.Out
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Any(l => l.EndsWith("\tdevice", StringComparison.OrdinalIgnoreCase));
+
+            DeviceStatusText.Text = hasDevice ? "Device: CONNECTED" : "Device: NOT FOUND";
+            AppendLog("adb devices");
+            if (!string.IsNullOrWhiteSpace(result.Out)) AppendLog(result.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(result.Err)) AppendLog(result.Err.Trim());
+        }
+
+        private async void StartFlashing_Click(object sender, RoutedEventArgs e)
+        {
+            switch (_mode)
+            {
+                case FlashMode.Odin:
+                    await StartOdinAsync();
+                    break;
+                case FlashMode.Fastboot:
+                    AppendLog("Fastboot mode selected. Implement partitions execution as needed.");
+                    break;
+                case FlashMode.Sideload:
+                    AppendLog("Sideload mode selected.");
+                    break;
+                case FlashMode.Tools:
+                    AppendLog("Tools mode selected.");
+                    break;
+                case FlashMode.BackupRestore:
+                    AppendLog("Backup/Restore mode selected.");
+                    break;
+            }
+        }
+
+        // Odin engine is ekoflash.exe (not Heimdall)
+        private async Task StartOdinAsync()
+        {
+            var exe = ToolsManager.EkoFlashExe;
+            if (!File.Exists(exe))
+            {
+                AppendLog($"ERROR: ekoflash.exe not found at: {exe}");
+                return;
+            }
+
+            var args = BuildOdinCommandArgs();
+            if (string.IsNullOrWhiteSpace(args))
+            {
+                AppendLog("No Odin files selected.");
+                return;
+            }
+
+            AppendLog($"Running: \"{exe}\" {args}");
+            var result = await RunProcessAsync(exe, args, 30 * 60 * 1000);
+
+            if (!string.IsNullOrWhiteSpace(result.Out)) AppendLog(result.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(result.Err)) AppendLog(result.Err.Trim());
+
+            AppendLog(result.Code == 0 ? "Odin operation completed successfully." : $"Odin operation failed with code: {result.Code}");
+        }
+
+        private string BuildOdinCommandArgs()
+        {
+            var sb = new StringBuilder();
+
+            foreach (var row in _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)))
+            {
+                // Map GUI slots to engine args.
+                switch (row.Key)
+                {
+                    case "BL":
+                        sb.Append($" --bl \"{row.FilePath}\"");
+                        break;
+                    case "AP":
+                        sb.Append($" --ap \"{row.FilePath}\"");
+                        break;
+                    case "CP":
+                        sb.Append($" --cp \"{row.FilePath}\"");
+                        break;
+                    case "CSC":
+                        sb.Append($" --csc \"{row.FilePath}\"");
+                        break;
+                    case "USERDATA":
+                        sb.Append($" --userdata \"{row.FilePath}\"");
+                        break;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_pitFilePath))
+                sb.Append($" --pit \"{_pitFilePath}\"");
+
+            if (RepartitionChk.IsChecked == true) sb.Append(" --repartition");
+            if (AutoRebootChk.IsChecked == true) sb.Append(" --auto-reboot");
+            if (FResetTimeChk.IsChecked == true) sb.Append(" --f-reset-time");
+
+            return sb.ToString().Trim();
         }
 
         private void UpdateCommandPreview()
         {
-            if (CommandPreviewBox != null) CommandPreviewBox.Text = $"Mode: {_mode}";
+            if (CommandPreviewBox == null) return;
+
+            switch (_mode)
+            {
+                case FlashMode.Odin:
+                    CommandPreviewBox.Text = $"\"{ToolsManager.EkoFlashExe}\" {BuildOdinCommandArgs()}";
+                    break;
+                case FlashMode.Fastboot:
+                    CommandPreviewBox.Text = $"\"{ToolsManager.FastbootExe}\" flash <partition> <image>";
+                    break;
+                case FlashMode.Sideload:
+                    CommandPreviewBox.Text = $"\"{ToolsManager.AdbExe}\" sideload \"{SideloadPathBox?.Text}\"";
+                    break;
+                case FlashMode.Tools:
+                    CommandPreviewBox.Text = "Utility commands (reboot / zadig / adb).";
+                    break;
+                default:
+                    CommandPreviewBox.Text = "Backup and restore operations.";
+                    break;
+            }
+        }
+
+        // Quick command buttons
+        private async void CmdRebootSys_Click(object sender, RoutedEventArgs e) => await RunAndLogAsync(ToolsManager.AdbExe, "reboot");
+        private async void CmdRebootBl_Click(object sender, RoutedEventArgs e) => await RunAndLogAsync(ToolsManager.AdbExe, "reboot bootloader");
+        private async void CmdRebootRec_Click(object sender, RoutedEventArgs e) => await RunAndLogAsync(ToolsManager.AdbExe, "reboot recovery");
+
+        private void LaunchZadig_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!File.Exists(ToolsManager.ZadigExe))
+                {
+                    AppendLog("zadig.exe not found.");
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = ToolsManager.ZadigExe,
+                    UseShellExecute = true
+                });
+
+                AppendLog("zadig.exe launched.");
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Failed to launch zadig: {ex.Message}");
+            }
+        }
+
+        // Backup placeholders
+        private async void LoadApps_Click(object sender, RoutedEventArgs e)
+        {
+            _backupApps.Clear();
+            AppendLog("Loading installed apps...");
+            var apps = await BackupService.GetInstalledAppsAsync(AppendLog);
+            foreach (var app in apps)
+                _backupApps.Add(new BackupAppRow { PackageName = app.PackageName, DisplayName = app.DisplayName });
+
+            AppendLog($"Loaded {apps.Count} apps.");
+        }
+
+        private void StartBackup_Click(object sender, RoutedEventArgs e)
+        {
+            AppendLog("Backup start requested.");
+        }
+
+        private async Task RunAndLogAsync(string fileName, string args)
+        {
+            AppendLog($"Run: \"{fileName}\" {args}");
+            var result = await RunProcessAsync(fileName, args, 120000);
+            if (!string.IsNullOrWhiteSpace(result.Out)) AppendLog(result.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(result.Err)) AppendLog(result.Err.Trim());
+            AppendLog($"Exit code: {result.Code}");
+        }
+
+        private static async Task<(int Code, string Out, string Err)> RunProcessAsync(string fileName, string args, int timeoutMs)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var p = new Process { StartInfo = psi };
+                var output = new StringBuilder();
+                var error = new StringBuilder();
+
+                p.OutputDataReceived += (_, e) => { if (e.Data != null) output.AppendLine(e.Data); };
+                p.ErrorDataReceived += (_, e) => { if (e.Data != null) error.AppendLine(e.Data); };
+
+                p.Start();
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+
+                var waitTask = p.WaitForExitAsync();
+                var delayTask = Task.Delay(timeoutMs);
+                var completed = await Task.WhenAny(waitTask, delayTask);
+
+                if (completed == delayTask)
+                {
+                    try { p.Kill(true); } catch { }
+                    return (-1, output.ToString(), $"Timeout after {timeoutMs / 1000}s");
+                }
+
+                return (p.ExitCode, output.ToString(), error.ToString());
+            }
+            catch (Exception ex)
+            {
+                return (-1, string.Empty, ex.Message);
+            }
+        }
+
+        private void AppendLog(string message)
+        {
+            if (LogBox == null) return;
+            LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+            LogBox.ScrollToEnd();
         }
     }
 
-    // --- تعريف الكلاسات المساعدة (خارج كلاس MainWindow ولكن داخل الـ Namespace) ---
     public class FlashRow : INotifyPropertyChanged
     {
-        private string _fp = "";
-        public string Key { get; set; } = "";
-        public string Label { get; set; } = "";
-        public string FilePath { get => _fp; set { _fp = value; OnPropertyChanged(); } }
+        private string _filePath = string.Empty;
+        public string Key { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+
+        public string FilePath
+        {
+            get => _filePath;
+            set
+            {
+                _filePath = value;
+                OnPropertyChanged();
+            }
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
-    public class BackupAppRow { public bool IsSelected { get; set; } public string PackageName { get; set; } = ""; public string DisplayName { get; set; } = ""; }
-    public class BackupSetRow { public string BackupPath { get; set; } = ""; public string PackageName { get; set; } = ""; public string DisplayName { get; set; } = ""; }
+    public class BackupAppRow
+    {
+        public bool IsSelected { get; set; }
+        public string PackageName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+    }
+
+    public class BackupSetRow
+    {
+        public string BackupPath { get; set; } = string.Empty;
+        public string PackageName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+    }
 }
