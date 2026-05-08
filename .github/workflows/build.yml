@@ -1,4 +1,4 @@
-name: Build EKOFLASH EXE
+name: Build EKOFLASH PRO v3.0
 
 on:
   push:
@@ -12,14 +12,15 @@ jobs:
     runs-on: windows-latest
     
     env:
+      # استخدام المتغير البيئي الافتراضي لـ vcpkg في GitHub Actions
+      VCPKG_ROOT: C:\vcpkg
       VCPKG_DEFAULT_TRIPLET: x64-windows-static
-      VCPKG_ROOT: C:\vcpkg # المسار الافتراضي في صور GitHub Actions
 
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive # لضمان جلب أي مكتبات فرعية إن وجدت
+          submodules: recursive
 
       - name: Set up MSVC
         uses: microsoft/setup-msbuild@v2
@@ -27,14 +28,28 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install dependencies via vcpkg
+      - name: Install Dependencies via vcpkg
         shell: pwsh
         run: |
-          # تثبيت المكتبات المطلوبة بشكل static لضمان عمل الملف التنفيذي في أي مكان
+          # تثبيت المكتبات بشكل ثابت (Static)
           vcpkg install fmt spdlog --triplet x64-windows-static
           vcpkg integrate install
 
-      - name: Fix md5_xxh3_cache - Resolve Status namespace conflict
+      - name: Generate Engine Entry Point (main.cpp)
+        shell: pwsh
+        run: |
+          if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
+          @"
+          #include "cli_mode.hpp"
+          int main(int argc, char* argv[]) {
+              if (brokkr::app::should_run_cli(argc, argv)) {
+                  return brokkr::app::run_cli(argc, argv);
+              }
+              return 0;
+          }
+          "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
+
+      - name: Fix md5_xxh3_cache Namespace
         shell: pwsh
         run: |
           $file = "src\app\md5_xxh3_cache.cpp"
@@ -44,7 +59,6 @@ jobs:
               $fix = "// NAMESPACE_FIX_APPLIED`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n`n"
               $fixed = $content -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n$fix"
               $fixed | Set-Content $file -Encoding UTF8
-              Write-Host "Patched: $file" -ForegroundColor Green
             }
           }
 
@@ -59,49 +73,73 @@ jobs:
       - name: Build C++ Engine (ekoflash.exe)
         shell: pwsh
         run: |
-          # استخدام المسارات الديناميكية لـ vcpkg لضمان الدقة
+          # تحديد مسارات vcpkg بدقة
           $VCPKG_INC = "${env:VCPKG_ROOT}\installed\x64-windows-static\include"
           $VCPKG_LIB = "${env:VCPKG_ROOT}\installed\x64-windows-static\lib"
 
-          $sources = Get-ChildItem -Path "src\protocol\odin\*.cpp", "src\core\*.cpp", "src\io\*.cpp", "src\platform\windows\*.cpp", "src\app\*.cpp" | Select-Object -ExpandProperty FullName
-          # إضافة ملفات C التابعة لمكتبات الطرف الثالث
-          $sources += "src\third_party\lz4\lz4.c", "src\third_party\md5\md5.c", "src\third_party\xxhash\xxhash.c"
+          # تجميع ملفات المصدر
+          $sources = @(
+            "src\protocol\odin\*.cpp",
+            "src\core\*.cpp",
+            "src\io\*.cpp",
+            "src\platform\windows\*.cpp",
+            "src\app\*.cpp",
+            "src\third_party\lz4\lz4.c",
+            "src\third_party\md5\md5.c",
+            "src\third_party\xxhash\xxhash.c"
+          )
+          $srcList = (Get-ChildItem -Path $sources).FullName -join " "
 
           $includes = "/I src /I src\core /I src\io /I src\platform\windows /I src\protocol\odin /I src\app /I src\third_party\lz4 /I src\third_party\md5 /I src\third_party\xxhash /I `"$VCPKG_INC`""
-          
           $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0"
-          
           $flags = "/std:c++latest /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /permissive- /wd4005 /wd4996"
+          
+          # ربط المكتبات مع المسار الكامل لمكتبات vcpkg
           $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib `"$VCPKG_LIB\fmt.lib`" `"$VCPKG_LIB\spdlog.lib`""
 
-          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs"
-          Write-Host "Executing Build..." -ForegroundColor Cyan
+          $cmd = "cl.exe $flags $defines $includes $srcList /Fe:ekoflash.exe /link $linkLibs"
+          Write-Host "Compiling Engine..." -ForegroundColor Cyan
           Invoke-Expression $cmd
           
-          if (!(Test-Path "ekoflash.exe")) { throw "Build failed: ekoflash.exe not generated" }
+          if (!(Test-Path "ekoflash.exe")) { throw "C++ Build Failed!" }
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish GUI and Bundle
+      - name: Publish GUI (WPF)
         shell: pwsh
         run: |
-          # بناء الـ WPF كـ Single File
           dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -o ./publish
 
-          # دمج المحرك داخل مجلد النشر
+      - name: Bundle All Assets
+        shell: pwsh
+        run: |
+          # 1. نسخ المحرك الذي بنيناه
           Copy-Item "ekoflash.exe" "./publish/" -Force
           
-          # تغيير الاسم النهائي
-          Rename-Item "./publish/EkoFlashTool.exe" "EKOFLASH_PRO_v3.0.exe"
+          # 2. نسخ ملفات الأدوات المساعدة الموجودة في المستودع (adb, fastboot, dlls)
+          $assets = @("adb.exe", "fastboot.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libusb-1.0.dll", "zadig.exe", "icon.ico")
+          foreach ($f in $assets) {
+            if (Test-Path $f) {
+                Copy-Item $f "./publish/" -Force
+                Write-Host "Bundled: $f" -ForegroundColor Green
+            } else {
+                Write-Warning "Asset missing from root: $f"
+            }
+          }
+
+          # 3. إعادة تسمية الملف النهائي
+          if (Test-Path "./publish/EkoFlashTool.exe") {
+            Rename-Item "./publish/EkoFlashTool.exe" "EKOFLASH_PRO_v3.0.exe"
+          }
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_PRO_V3
+          name: EKOFLASH_PRO_FULL_BUNDLE
           path: ./publish/
