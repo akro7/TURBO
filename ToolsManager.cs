@@ -6,22 +6,28 @@ using System.Reflection;
 
 namespace MKVenomTool
 {
+    /// <summary>
+    /// TURBO FLASH TOOL - Tools Management Engine
+    /// Managed by: AHMED YOUNIS & Mohamed Khaled
+    /// </summary>
     public static class ToolsManager
     {
+        // تغيير المسار إلى TurboFlashTool ليناسب الهوية الجديدة
         public static readonly string ToolsRoot =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkoFlashTool", "bin");
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TurboFlashTool", "bin");
 
         private static bool _extracted;
 
-        private static readonly Dictionary<string, string> ResourceToFile = new()
+        // خريطة الموارد: تربط المورد الداخلي بالمسار والمجلد المطلوب
+        private static readonly Dictionary<string, (string folder, string fileName)> ResourceMapping = new()
         {
-            ["res.pt.adb.exe"] = "adb.exe",
-            ["res.pt.fastboot.exe"] = "fastboot.exe",
-            ["res.pt.AdbWinApi.dll"] = "AdbWinApi.dll",
-            ["res.pt.AdbWinUsbApi.dll"] = "AdbWinUsbApi.dll",
-            ["res.ok.ekoflash.exe"] = "ekoflash.exe",
-            ["res.ok.libusb.dll"] = "libusb-1.0.dll",
-            ["res.zd.zadig.exe"] = "zadig.exe"
+            ["res.pt.adb.exe"] = ("platform-tools", "adb.exe"),
+            ["res.pt.fastboot.exe"] = ("platform-tools", "fastboot.exe"),
+            ["res.pt.AdbWinApi.dll"] = ("platform-tools", "AdbWinApi.dll"),
+            ["res.pt.AdbWinUsbApi.dll"] = ("platform-tools", "AdbWinUsbApi.dll"),
+            ["res.ok.ekoflash.exe"] = ("odin", "ekoflash.exe"),
+            ["res.ok.libusb.dll"] = ("odin", "libusb-1.0.dll"),
+            ["res.zd.zadig.exe"] = ("zadig", "zadig.exe")
         };
 
         public static string AdbExe => GetExePath("platform-tools", "adb");
@@ -29,51 +35,94 @@ namespace MKVenomTool
         public static string EkoFlashExe => GetExePath("odin", "ekoflash");
         public static string ZadigExe => GetExePath("zadig", "zadig");
 
+        /// <summary>
+        /// التأكد من استخراج جميع الأدوات اللازمة للعمل
+        /// </summary>
         public static void EnsureExtracted()
         {
             if (_extracted) return;
 
             try
             {
-                Directory.CreateDirectory(ToolsRoot);
-
                 var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
-                var all = asm.GetManifestResourceNames();
+                var resourceNames = asm.GetManifestResourceNames();
 
-                foreach (var kv in ResourceToFile)
+                foreach (var entry in ResourceMapping)
                 {
-                    var logical = all.FirstOrDefault(n =>
-                        string.Equals(n, kv.Key, StringComparison.OrdinalIgnoreCase) ||
-                        n.EndsWith("." + kv.Key, StringComparison.OrdinalIgnoreCase));
+                    string resourceKey = entry.Key;
+                    var (folder, fileName) = entry.Value;
 
-                    if (logical == null) continue;
+                    // تحديد المسار الكامل للمجلد والملف
+                    string targetFolder = Path.Combine(ToolsRoot, folder);
+                    string targetPath = Path.Combine(targetFolder, fileName);
 
-                    using var stream = asm.GetManifestResourceStream(logical);
-                    if (stream == null) continue;
+                    // إنشاء المجلد إذا لم يكن موجوداً
+                    if (!Directory.Exists(targetFolder))
+                        Directory.CreateDirectory(targetFolder);
 
-                    var dst = Path.Combine(ToolsRoot, kv.Value);
-                    using var fs = File.Create(dst);
-                    stream.CopyTo(fs);
+                    // استخراج الملف فقط إذا كان غير موجود (لتوفير الوقت)
+                    if (!File.Exists(targetPath))
+                    {
+                        var fullResourceName = resourceNames.FirstOrDefault(n =>
+                            n.Equals(resourceKey, StringComparison.OrdinalIgnoreCase) ||
+                            n.EndsWith("." + resourceKey, StringComparison.OrdinalIgnoreCase));
+
+                        if (fullResourceName != null)
+                        {
+                            using var stream = asm.GetManifestResourceStream(fullResourceName);
+                            if (stream != null)
+                            {
+                                using var fs = File.Create(targetPath);
+                                stream.CopyTo(fs);
+                            }
+                        }
+                    }
                 }
 
                 _extracted = true;
             }
             catch (Exception ex)
             {
-                App.CrashLog("ToolsManager.EnsureExtracted", ex.ToString());
+                // إرسال الخطأ لـ CrashLog (تأكد من وجود هذه الدالة في App.xaml.cs)
+                App.CrashLog("ToolsManager.EnsureExtracted", $"Critical failure in extracting core tools: {ex.Message}");
             }
         }
 
-        public static bool ExeExists(string folder, string exe) => File.Exists(GetExePath(folder, exe));
-
-        public static string GetExePath(string folder, string exe)
+        /// <summary>
+        /// فحص وجود الأداة في المجلد المخصص لها
+        /// </summary>
+        public static bool ExeExists(string folder, string exeName)
         {
-            var e = exe.Trim();
-            if (!e.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
-                !e.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-                e += ".exe";
+            return File.Exists(GetExePath(folder, exeName));
+        }
 
-            return Path.Combine(ToolsRoot, e);
+        /// <summary>
+        /// جلب المسار الكامل لأي أداة مع معالجة الامتدادات تلقائياً
+        /// </summary>
+        public static string GetExePath(string folder, string exeName)
+        {
+            var cleanName = exeName.Trim();
+            if (!cleanName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                !cleanName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanName += ".exe";
+            }
+
+            return Path.Combine(ToolsRoot, folder, cleanName);
+        }
+
+        /// <summary>
+        /// مسح جميع الأدوات المستخرجة (في حال الرغبة في التحديث أو الإصلاح)
+        /// </summary>
+        public static void ResetTools()
+        {
+            try
+            {
+                if (Directory.Exists(ToolsRoot))
+                    Directory.Delete(ToolsRoot, true);
+                _extracted = false;
+            }
+            catch { /* المجلد قد يكون قيد الاستخدام */ }
         }
     }
 }
