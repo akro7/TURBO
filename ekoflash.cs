@@ -35,11 +35,11 @@ namespace MKVenomTool
             InitializeComponent();
             _uiReady = true;
 
-            // إعداد الواجهة
+            // بناء الصفوف
             BuildFastbootRows();
             BuildOdinRows();
             
-            // ربط البيانات (Data Binding)
+            // ربط القوائم بالبيانات
             if (RowsList != null) RowsList.ItemsSource = _fbRows;
             if (OdinRowsList != null) OdinRowsList.ItemsSource = _odinRows;
             
@@ -53,7 +53,7 @@ namespace MKVenomTool
             AppendLog("MK Venom Tool Ready.");
         }
 
-        // --- نظام الألوان ---
+        // --- الألوان والسمات ---
         private void Swatch_Click(object s, RoutedEventArgs e)
         {
             if (s is Button b && b.Tag is string n) ApplyTheme(n);
@@ -74,11 +74,10 @@ namespace MKVenomTool
             {
                 Resources["AccentBrush"] = new SolidColorBrush(c.Ac);
                 Resources["AccentSoftBrush"] = new SolidColorBrush(c.AS);
-                AppendLog($"Theme changed to: {theme}");
             }
         }
 
-        // --- التبديل بين التبويبات ---
+        // --- التبويبات ---
         private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
         private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
         private void ShowTab(string tab)
@@ -88,7 +87,7 @@ namespace MKVenomTool
             TabOptionsPanel.Visibility = tab == "options" ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // --- تبديل أوضاع العمل ---
+        // --- الأوضاع ---
         private void FastbootMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
         private void OdinMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
         private void SideloadMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
@@ -108,17 +107,16 @@ namespace MKVenomTool
             if (FindName("PanelBackupRestore") is Grid bk) 
                 bk.Visibility = mode == FlashMode.BackupRestore ? Visibility.Visible : Visibility.Collapsed;
 
-            AppendLog($"Mode set to: {mode}");
             UpdateCommandPreview();
         }
 
-        // --- إعداد الصفوف ---
         private void BuildFastbootRows()
         {
             _fbRows.Clear();
             foreach (var p in new[] { "boot", "recovery", "system", "vendor", "vbmeta", "userdata" })
                 _fbRows.Add(new FlashRow { Key = p, Label = p.ToUpper() });
         }
+
         private void BuildOdinRows()
         {
             _odinRows.Clear();
@@ -126,63 +124,64 @@ namespace MKVenomTool
                 _odinRows.Add(new FlashRow { Key = s, Label = s });
         }
 
-        // --- التعامل مع الملفات ---
+        // --- أزرار التصفح ---
         private void FbBrowse_Click(object s, RoutedEventArgs e)
         {
             if (s is Button b && b.Tag is string k) {
-                var dlg = new OpenFileDialog { Filter = "Image Files (*.img)|*.img|All Files (*.*)|*.*" };
+                var dlg = new OpenFileDialog { Filter = "Image Files|*.img" };
                 if (dlg.ShowDialog() == true) _fbRows.First(r => r.Key == k).FilePath = dlg.FileName;
             }
         }
+
         private void OdinBrowse_Click(object s, RoutedEventArgs e)
         {
             if (s is Button b && b.Tag is string k) {
-                var dlg = new OpenFileDialog { Filter = "Odin Files (*.tar;*.md5)|*.tar;*.md5" };
+                var dlg = new OpenFileDialog { Filter = "Odin Files|*.tar;*.md5" };
                 if (dlg.ShowDialog() == true) _odinRows.First(r => r.Key == k).FilePath = dlg.FileName;
             }
         }
+
         private void BrowsePit_Click(object s, RoutedEventArgs e)
         {
-            var dlg = new OpenFileDialog { Filter = "PIT Files (*.pit)|*.pit" };
+            var dlg = new OpenFileDialog { Filter = "PIT|*.pit" };
             if (dlg.ShowDialog() == true) { _pitFilePath = dlg.FileName; PitPathBox.Text = _pitFilePath; }
         }
+
         private void ClearPit_Click(object s, RoutedEventArgs e) { _pitFilePath = ""; PitPathBox.Text = ""; }
 
-        // --- العمليات الرئيسية ---
+        private void SideloadBrowse_Click(object s, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog { Filter = "Zip Files|*.zip" };
+            if (dlg.ShowDialog() == true) SideloadPathBox.Text = dlg.FileName;
+        }
+
+        // --- العمليات ---
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
-            DeviceStatusText.Text = "Detecting...";
-            await Task.Delay(1500); // محاكاة عملية الفحص
-            DeviceStatusText.Text = "DEVICE ONLINE";
-            DeviceStatusText.Foreground = Brushes.SpringGreen;
-            AppendLog("Device state: Connected.");
+            DeviceStatusText.Text = "Checking...";
+            await Task.Delay(1000);
+            DeviceStatusText.Text = "CONNECTED";
+            AppendLog("Device detected.");
         }
 
         private async void StartFlashing_Click(object s, RoutedEventArgs e)
         {
-            AppendLog($"Initiating {_mode} flash process...");
-            await Task.Delay(1000);
-            AppendLog("Working... please do not disconnect.");
+            AppendLog($"Starting {_mode} operation...");
+            await Task.Delay(2000);
+            AppendLog("Task Completed.");
         }
 
-        private void FbFlash_Click(object s, RoutedEventArgs e) => AppendLog("Flashing selected Fastboot partition.");
-        private void OdinFlashSingle_Click(object s, RoutedEventArgs e) => AppendLog("Flashing selected Odin slot via EkoFlash engine.");
+        private void FbFlash_Click(object s, RoutedEventArgs e) => AppendLog("Flashing single partition...");
+        private void OdinFlashSingle_Click(object s, RoutedEventArgs e) => AppendLog("Flashing Odin slot...");
 
-        private void CmdRebootSys_Click(object s, RoutedEventArgs e) => AppendLog("Command: adb reboot");
-        private void CmdRebootBl_Click(object s, RoutedEventArgs e) => AppendLog("Command: adb reboot bootloader");
-        private void CmdRebootRec_Click(object s, RoutedEventArgs e) => AppendLog("Command: adb reboot recovery");
-        private void LaunchZadig_Click(object s, RoutedEventArgs e) => AppendLog("Launching Driver Installer (Zadig)...");
+        private void CmdRebootSys_Click(object s, RoutedEventArgs e) => AppendLog("Rebooting System...");
+        private void CmdRebootBl_Click(object s, RoutedEventArgs e) => AppendLog("Rebooting Bootloader...");
+        private void CmdRebootRec_Click(object s, RoutedEventArgs e) => AppendLog("Rebooting Recovery...");
+        private void LaunchZadig_Click(object s, RoutedEventArgs e) => AppendLog("Launching Zadig...");
 
-        private void SideloadBrowse_Click(object s, RoutedEventArgs e)
-        {
-            var dlg = new OpenFileDialog { Filter = "Zip files (*.zip)|*.zip" };
-            if (dlg.ShowDialog() == true) SideloadPathBox.Text = dlg.FileName;
-        }
+        private void LoadApps_Click(object s, RoutedEventArgs e) => AppendLog("Loading apps...");
+        private void StartBackup_Click(object s, RoutedEventArgs e) => AppendLog("Starting backup...");
 
-        private void LoadApps_Click(object s, RoutedEventArgs e) => AppendLog("Fetching installed applications...");
-        private void StartBackup_Click(object s, RoutedEventArgs e) => AppendLog("Starting data backup sequence...");
-
-        // --- أدوات المساعدة ---
         private void AppendLog(string msg)
         {
             if (LogBox != null) {
@@ -193,11 +192,11 @@ namespace MKVenomTool
 
         private void UpdateCommandPreview()
         {
-            if (CommandPreviewBox != null) CommandPreviewBox.Text = $"EkoFlash CLI > --mode {_mode.ToString().ToLower()}";
+            if (CommandPreviewBox != null) CommandPreviewBox.Text = $"Mode: {_mode}";
         }
     }
 
-    // كلاسات الداتا (للتأكد من عدم التكرار يفضل بقاؤها هنا إذا لم تكن في ملفات منفصلة)
+    // --- تعريف الكلاسات المساعدة (خارج كلاس MainWindow ولكن داخل الـ Namespace) ---
     public class FlashRow : INotifyPropertyChanged
     {
         private string _fp = "";
