@@ -26,12 +26,11 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: x64 # إجبار البيئة على x64 لتجنب مشاكل winnt.h
+          arch: x64
 
-      - name: Install C++ Dependencies
+      - name: Install C++ Dependencies (vcpkg)
         shell: pwsh
         run: |
-          # استخدام vcpkg المثبت مسبقاً في الويندوز
           cd $env:VCPKG_INSTALLATION_ROOT
           .\vcpkg install fmt spdlog --triplet x64-windows-static
           .\vcpkg integrate install
@@ -39,27 +38,29 @@ jobs:
       - name: Download External Tools
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path "external_tools" -Force
+          if (!(Test-Path "external_tools")) { New-Item -ItemType Directory -Path "external_tools" -Force }
           
-          # تحميل ADB و Fastboot
+          # Platform Tools
           Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile pt.zip
           Expand-Archive pt.zip . -Force
           Copy-Item "platform-tools\adb.exe", "platform-tools\fastboot.exe", "platform-tools\AdbWinApi.dll", "platform-tools\AdbWinUsbApi.dll" "external_tools\" -Force
           
-          # تحميل LibUSB
+          # LibUSB
           Invoke-WebRequest "https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.7z" -OutFile libusb.7z
           7z x libusb.7z -olibusb_dir -y
           $dll = Get-ChildItem libusb_dir -Recurse -Filter "libusb-1.0.dll" | Where-Object { $_.FullName -match "MS64|x64" } | Select-Object -First 1
           Copy-Item $dll.FullName "external_tools\" -Force
 
-          # تحميل Zadig
+          # Zadig
           Invoke-WebRequest "https://github.com/pbatard/libwdi/releases/download/v1.5.1/zadig-2.9.exe" -OutFile "external_tools\zadig.exe"
 
       - name: Prepare C++ Source Files
         shell: pwsh
         run: |
           if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
+          # إضافة windows.h لضمان تعريف LONG_PTR قبل أي شيء آخر
           @"
+          #include <windows.h>
           #include "cli_mode.hpp"
           int main(int argc, char* argv[]) {
               if (brokkr::app::should_run_cli(argc, argv)) {
@@ -69,59 +70,35 @@ jobs:
           }
           "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
 
-          # إصلاح الـ Namespace
-          $file = "src\app\md5_xxh3_cache.cpp"
-          if (Test-Path $file) {
-            $content = Get-Content $file -Raw
-            $fix = "// NAMESPACE_FIX_APPLIED`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n`n"
-            if ($content -notmatch "NAMESPACE_FIX_APPLIED") {
-              $content -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n$fix" | Set-Content $file -Encoding UTF8
-            }
-          }
-
-          # توليد xxhash.c
-          $dir = "src\third_party\xxhash"
-          if (!(Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir }
-          "#define XXH_STATIC_LINKING_ONLY`n#define XXH_IMPLEMENTATION`n#include `"xxhash.h`"" | Set-Content "$dir\xxhash.c" -Encoding UTF8
-
       - name: Build C++ Engine (ekoflash.exe)
         shell: pwsh
         run: |
           $VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
-          $INC_PATH = "$VCPKG_ROOT\installed\x64-windows-static\include"
-          $LIB_PATH = "$VCPKG_ROOT\installed\x64-windows-static\lib"
+          # مسار include ومسار lib لـ vcpkg بشكل مباشر ومؤكد
+          $INC_VCPKG = Join-Path $VCPKG_ROOT "installed\x64-windows-static\include"
+          $LIB_VCPKG = Join-Path $VCPKG_ROOT "installed\x64-windows-static\lib"
 
-          # جمع كل ملفات الـ Source بشكل يدوي لضمان عدم تخطي أي ملف
-          $srcFiles = @()
-          $srcFiles += Get-ChildItem "src\protocol\odin\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem "src\core\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem "src\io\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem "src\platform\windows\*.cpp" | % { $_.FullName }
-          $srcFiles += Get-ChildItem "src\app\*.cpp" | % { $_.FullName }
-          $srcFiles += "src\third_party\lz4\lz4.c"
-          $srcFiles += "src\third_party\md5\md5.c"
-          $srcFiles += "src\third_party\xxhash\xxhash.c"
-          
+          # تجميع الملفات
+          $srcFiles = Get-ChildItem -Path "src\protocol\odin\*.cpp", "src\core\*.cpp", "src\io\*.cpp", "src\platform\windows\*.cpp", "src\app\*.cpp" | % { $_.FullName }
+          $srcFiles += @("src\third_party\lz4\lz4.c", "src\third_party\md5\md5.c", "src\third_party\xxhash\xxhash.c")
           $sources = $srcFiles -join " "
 
-          $includes = "/I src /I src\core /I src\io /I src\platform\windows /I src\protocol\odin /I src\app /I src\third_party\lz4 /I src\third_party\md5 /I src\third_party\xxhash /I `"$INC_PATH`""
+          $includes = "/I src /I src\core /I src\io /I src\platform\windows /I src\protocol\odin /I src\app /I src\third_party\lz4 /I src\third_party\md5 /I src\third_party\xxhash /I `"$INC_VCPKG`""
           
-          # تعريفات مهمة لحل مشاكل winnt.h وتعارض std::byte
-          $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0 /D _CRT_SECURE_NO_WARNINGS /D _AMD64_"
+          # الحل الجذري لأخطاء winnt.h و basetsd.h:
+          # 1. _HAS_STD_BYTE=0 لتعطيل تعارض std::byte
+          # 2. _AMD64_ لتعريف المعمارية بشكل صريح
+          # 3. استخدام c++17 لضمان استقرار ملفات الهيدر الخاصة بالـ SDK
+          $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0 /D _CRT_SECURE_NO_WARNINGS /D _AMD64_ /D _HAS_STD_BYTE=0 /D STRICT"
+          $flags = "/std:c++17 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
           
-          # استخدام c++20 بدلاً من latest لاستقرار أفضل مع Windows Headers
-          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
-          
-          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib `"$LIB_PATH\fmt.lib`" `"$LIB_PATH\spdlog.lib`""
+          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib `"$LIB_VCPKG\fmt.lib`" `"$LIB_VCPKG\spdlog.lib`""
 
           $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs /MACHINE:X64"
-          Write-Host "Executing Build Command..." -ForegroundColor Cyan
+          Write-Host "Running Build Command..." -ForegroundColor Cyan
           Invoke-Expression $cmd
           
-          if (!(Test-Path "ekoflash.exe")) { 
-            Write-Error "C++ Build Failed! EXE not found."
-            exit 1 
-          }
+          if (!(Test-Path "ekoflash.exe")) { throw "Build Failed: ekoflash.exe not generated" }
 
       - name: Build & Publish GUI (.NET 8 WPF)
         shell: pwsh
