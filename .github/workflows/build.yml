@@ -1,93 +1,68 @@
-name: Build C++ Engine (TURBO_FLASH_TOOL)
+name: Build TURBO_FLASH_TOOL
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:     # ← ده اللي بيخلي زرار "Run workflow" يظهر
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: 'HEAD'
+          submodules: recursive
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install C++ Dependencies (vcpkg)
+        shell: pwsh
+        run: |
+          cd $env:VCPKG_INSTALLATION_ROOT
+          .\vcpkg install fmt spdlog --triplet x64-windows-static
+          .\vcpkg integrate install
 
       - name: Build C++ Engine (TURBO_FLASH_TOOL.exe)
         shell: pwsh
         run: |
-
           $VCPKG_PATH = $env:VCPKG_INSTALLATION_ROOT
           $VCPKG_INC = "$VCPKG_PATH\installed\x64-windows-static\include"
           $VCPKG_LIB = "$VCPKG_PATH\installed\x64-windows-static\lib"
 
-          # ==========================================
-          # Collect Source Files
-          # ==========================================
-
-          $sources = Get-ChildItem `
-            -Path `
-            "src\protocol\odin\*.cpp",
-            "src\core\*.cpp",
-            "src\io\*.cpp",
-            "src\platform\windows\*.cpp",
-            "src\app\*.cpp" |
-            Select-Object -ExpandProperty FullName
-
-          $sources += @(
-            "src\third_party\lz4\lz4.c",
-            "src\third_party\md5\md5.c",
-            "src\third_party\xxhash\xxhash.c"
-          )
-
-          # ==========================================
-          # Includes
-          # ==========================================
+          $sources = Get-ChildItem -Path "src" -Recurse -Include "*.cpp","*.c" | 
+                     Where-Object { $_.FullName -notmatch "tests" } |
+                     Select-Object -ExpandProperty FullName
 
           $includes = @(
             "/I src",
-            "/I src\core",
-            "/I src\io",
-            "/I src\platform\windows",
-            "/I src\protocol\odin",
-            "/I src\app",
-            "/I src\third_party\lz4",
-            "/I src\third_party\md5",
-            "/I src\third_party\xxhash",
             "/I `"$VCPKG_INC`""
           ) -join " "
-
-          # ==========================================
-          # Defines
-          # ==========================================
 
           $defines = @(
             "/D BROKKR_PLATFORM_WINDOWS",
             "/D WIN32",
-            "/D _WINDOWS",
             "/D WIN32_LEAN_AND_MEAN",
             "/D NOMINMAX",
             "/D _WIN32_WINNT=0x0A00",
             "/D SPDLOG_FMT_EXTERNAL",
-            "/D FMT_HEADER_ONLY=0"
+            "/D FMT_HEADER_ONLY=0",
+            "/D _CRT_SECURE_NO_WARNINGS"
           ) -join " "
 
-          # ==========================================
-          # Compiler Flags
-          # ==========================================
-
           $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
-
-          # ==========================================
-          # Libraries
-          # ==========================================
 
           $linkLibs = @(
             "Ws2_32.lib",
@@ -98,37 +73,17 @@ jobs:
             "`"$VCPKG_LIB\spdlog.lib`""
           ) -join " "
 
-          # ==========================================
-          # Build Command
-          # ==========================================
+          $cmd = "cl.exe $flags $defines $includes $sources /Fe:TURBO_FLASH_TOOL.exe /link $linkLibs /MACHINE:X64"
 
-          $cmd = "cl.exe $flags $defines $includes $sources /Fe:TURBO_FLASH_TOOL.exe /link $linkLibs"
-
-          Write-Host ""
-          Write-Host "====================================="
-          Write-Host " BUILD COMMAND "
-          Write-Host "====================================="
-          Write-Host ""
           Write-Host $cmd
-          Write-Host ""
-
           Invoke-Expression $cmd
 
-          # ==========================================
-          # Validate Build
-          # ==========================================
-
           if (!(Test-Path "TURBO_FLASH_TOOL.exe")) {
-              throw "Engine Build Failed!"
+              throw "Build Failed!"
           }
-
-          Write-Host ""
-          Write-Host "====================================="
-          Write-Host " BUILD SUCCESSFUL "
-          Write-Host "====================================="
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TURBO_FLASH_TOOL
-          path: TURBO_FLASH_TOOL.exe          Write-Host "====================================="
+          path: TURBO_FLASH_TOOL.exe
