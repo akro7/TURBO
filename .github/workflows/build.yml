@@ -30,13 +30,15 @@ jobs:
       - name: Generate main.cpp entry point
         shell: pwsh
         run: |
+          # التأكد من وجود المجلد بناءً على صورة src/app
           if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
-          @"
+          $mainContent = @"
           #include "cli_mode.hpp"
           int main(int argc, char* argv[]) {
               return brokkr::app::run_cli(argc, argv);
           }
-          "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
+          "@
+          $mainContent | Set-Content "src\app\main.cpp" -Encoding UTF8
 
       - name: Build ekoflash.exe (Static C++)
         shell: pwsh
@@ -44,29 +46,37 @@ jobs:
           $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
           $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
           
-          # استخراج كافة ملفات .cpp و .c بشكل فردي لتجنب خطأ C1083 (بناءً على صور src/protocol/odin وغيرها)
-          $srcFiles = Get-ChildItem -Path "src\protocol\odin\*.cpp", "src\core\*.cpp", "src\io\*.cpp", "src\platform\windows\*.cpp", "src\app\*.cpp", "src\third_party\lz4\*.c", "src\third_party\md5\*.c" -Recurse | Select-Object -ExpandProperty FullName
+          # تجميع الملفات باستخدام مسارات نسبية لتجنب مشاكل طول المسار (C1083)
+          $srcFiles = Get-ChildItem -Path "src\protocol\odin\*.cpp", "src\core\*.cpp", "src\io\*.cpp", "src\platform\windows\*.cpp", "src\app\*.cpp", "src\third_party\lz4\*.c", "src\third_party\md5\*.c" -Recurse | Resolve-Path -Relative
           
-          $includes = @(
-            "/I src", "/I src\core", "/I src\io", 
-            "/I src\platform\windows", "/I src\protocol\odin", 
-            "/I src\app", "/I src\third_party\lz4", 
-            "/I src\third_party\md5", "/I `"$VCPKG_INC`""
+          # تعريف المصفوفات بشكل منفصل لضمان تمريرها كـ Arguments صحيحة للمترجم
+          $compilerArgs = @(
+            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus",
+            "/I", "src", 
+            "/I", "src\core", 
+            "/I", "src\io", 
+            "/I", "src\platform\windows", 
+            "/I", "src\protocol\odin", 
+            "/I", "src\app", 
+            "/I", "src\third_party\lz4", 
+            "/I", "src\third_party\md5", 
+            "/I", "$VCPKG_INC",
+            "/D", "BROKKR_PLATFORM_WINDOWS", 
+            "/D", "WIN32_LEAN_AND_MEAN", 
+            "/D", "NOMINMAX", 
+            "/D", "_WIN32_WINNT=0x0A00", 
+            "/D", "SPDLOG_FMT_EXTERNAL"
           )
           
-          $defines = @("/D BROKKR_PLATFORM_WINDOWS", "/D WIN32_LEAN_AND_MEAN", "/D NOMINMAX", "/D _WIN32_WINNT=0x0A00", "/D SPDLOG_FMT_EXTERNAL")
-          # تم تصحيح العلم الخاص بـ c++latest (بناءً على تحذير الصورة 42232)
-          $flags = @("/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus")
+          $linkArgs = @(
+            "/link",
+            "/LIBPATH:$VCPKG_LIB",
+            "Ws2_32.lib", "SetupAPI.lib", "User32.lib", "Advapi32.lib", "fmt.lib"
+          )
           
-          $inclList = $includes -join " "
-          $defList = $defines -join " "
-          $flagList = $flags -join " "
-          $srcList = $srcFiles -join " "
-          
-          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib fmt.lib"
-          
-          Write-Host "Starting Compilation..."
-          cl.exe $flagList $inclList $defList $srcList /Fe:ekoflash.exe /link /LIBPATH:"$VCPKG_LIB" $linkLibs
+          Write-Host "Starting Compilation with individual arguments..."
+          # تمرير المصفوفة مباشرة يضمن لـ PowerShell إرسال كل علم كـ Argument منفصل
+          & cl.exe $compilerArgs $srcFiles /Fe:ekoflash.exe $linkArgs
 
       - name: Upload Engine Artifact
         uses: actions/upload-artifact@v4
@@ -96,23 +106,26 @@ jobs:
       - name: Verify All Embedded Assets
         shell: pwsh
         run: |
-          # التحقق من الملفات (تم تحديث الاسم بناءً على EkoFlashTool.csproj في الصور)
+          # التحقق من وجود الملفات في الجذر كما تظهر في صور الـ root (42229, 42231)
           $assets = @("ekoflash.exe", "adb.exe", "fastboot.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libusb-1.0.dll", "zadig.exe", "app.ico")
           foreach ($file in $assets) {
-            if (Test-Path $file) { Write-Host "Verified: $file" }
-            else { Write-Host "Warning: $file not found in root, checking subdirectories..."; }
+            if (Test-Path $file) { 
+              Write-Host "Verified: $file" -ForegroundColor Green 
+            } else { 
+              Write-Host "Warning: $file not found!" -ForegroundColor Yellow 
+            }
           }
 
       - name: Publish EKOFLASH PRO
         run: |
-          # استخدام اسم المشروع الصحيح الظاهر في الصورة 42231
+          # بناءً على الصورة 42231، اسم المشروع هو EkoFlashTool.csproj
           dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
 
       - name: Rename Final Output
         shell: pwsh
         run: |
           if (Test-Path "./publish/EkoFlashTool.exe") {
-            Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe"
+            Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
           }
 
       - name: Upload Final Release
