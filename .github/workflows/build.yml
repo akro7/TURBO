@@ -20,44 +20,44 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up MSVC & vcpkg
+      - name: Set up MSVC
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64 # إجبار البيئة على x64 لتجنب مشاكل winnt.h
 
-      - name: Install C++ Dependencies (fmt & spdlog)
+      - name: Install C++ Dependencies
         shell: pwsh
         run: |
-          # نستخدم المجلد الافتراضي لـ vcpkg الموجود مسبقاً في الويندوز
+          # استخدام vcpkg المثبت مسبقاً في الويندوز
           cd $env:VCPKG_INSTALLATION_ROOT
           .\vcpkg install fmt spdlog --triplet x64-windows-static
           .\vcpkg integrate install
 
-      # --- مرحلة تحميل الأدوات الخارجية (مثل كود MKVenomTool) ---
-      - name: Download External Tools (ADB, Fastboot, Zadig, LibUSB)
+      - name: Download External Tools
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "external_tools" -Force
           
-          # 1. Platform Tools (ADB & Fastboot)
+          # تحميل ADB و Fastboot
           Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile pt.zip
           Expand-Archive pt.zip . -Force
           Copy-Item "platform-tools\adb.exe", "platform-tools\fastboot.exe", "platform-tools\AdbWinApi.dll", "platform-tools\AdbWinUsbApi.dll" "external_tools\" -Force
           
-          # 2. LibUSB
+          # تحميل LibUSB
           Invoke-WebRequest "https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.7z" -OutFile libusb.7z
           7z x libusb.7z -olibusb_dir -y
           $dll = Get-ChildItem libusb_dir -Recurse -Filter "libusb-1.0.dll" | Where-Object { $_.FullName -match "MS64|x64" } | Select-Object -First 1
           Copy-Item $dll.FullName "external_tools\" -Force
 
-          # 3. Zadig
+          # تحميل Zadig
           Invoke-WebRequest "https://github.com/pbatard/libwdi/releases/download/v1.5.1/zadig-2.9.exe" -OutFile "external_tools\zadig.exe"
 
       - name: Prepare C++ Source Files
         shell: pwsh
         run: |
-          # توليد main.cpp إذا لم يكن موجوداً
           if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
           @"
           #include "cli_mode.hpp"
@@ -69,43 +69,59 @@ jobs:
           }
           "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
 
-          # إصلاح الـ Namespace في ملف الكاش
+          # إصلاح الـ Namespace
           $file = "src\app\md5_xxh3_cache.cpp"
           if (Test-Path $file) {
             $content = Get-Content $file -Raw
+            $fix = "// NAMESPACE_FIX_APPLIED`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n`n"
             if ($content -notmatch "NAMESPACE_FIX_APPLIED") {
-              $fix = "// NAMESPACE_FIX_APPLIED`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n`n"
-              $fixed = $content -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n$fix"
-              $fixed | Set-Content $file -Encoding UTF8
+              $content -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n$fix" | Set-Content $file -Encoding UTF8
             }
           }
 
           # توليد xxhash.c
           $dir = "src\third_party\xxhash"
           if (!(Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir }
-          $h = if (Test-Path "$dir\xxhash_vendor.h") { "xxhash_vendor.h" } else { "xxhash.h" }
-          "#define XXH_STATIC_LINKING_ONLY`n#define XXH_IMPLEMENTATION`n#include `"$h`"" | Set-Content "$dir\xxhash.c" -Encoding UTF8
+          "#define XXH_STATIC_LINKING_ONLY`n#define XXH_IMPLEMENTATION`n#include `"xxhash.h`"" | Set-Content "$dir\xxhash.c" -Encoding UTF8
 
       - name: Build C++ Engine (ekoflash.exe)
         shell: pwsh
         run: |
-          $VCPKG_PATH = $env:VCPKG_INSTALLATION_ROOT
-          $VCPKG_INC = "$VCPKG_PATH\installed\x64-windows-static\include"
-          $VCPKG_LIB = "$VCPKG_PATH\installed\x64-windows-static\lib"
+          $VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          $INC_PATH = "$VCPKG_ROOT\installed\x64-windows-static\include"
+          $LIB_PATH = "$VCPKG_ROOT\installed\x64-windows-static\lib"
 
-          # تجميع كافة ملفات الـ CPP
-          $sources = Get-ChildItem -Path "src\protocol\odin\*.cpp", "src\core\*.cpp", "src\io\*.cpp", "src\platform\windows\*.cpp", "src\app\*.cpp" | Select-Object -ExpandProperty FullName
-          $sources += "src\third_party\lz4\lz4.c", "src\third_party\md5\md5.c", "src\third_party\xxhash\xxhash.c"
+          # جمع كل ملفات الـ Source بشكل يدوي لضمان عدم تخطي أي ملف
+          $srcFiles = @()
+          $srcFiles += Get-ChildItem "src\protocol\odin\*.cpp" | % { $_.FullName }
+          $srcFiles += Get-ChildItem "src\core\*.cpp" | % { $_.FullName }
+          $srcFiles += Get-ChildItem "src\io\*.cpp" | % { $_.FullName }
+          $srcFiles += Get-ChildItem "src\platform\windows\*.cpp" | % { $_.FullName }
+          $srcFiles += Get-ChildItem "src\app\*.cpp" | % { $_.FullName }
+          $srcFiles += "src\third_party\lz4\lz4.c"
+          $srcFiles += "src\third_party\md5\md5.c"
+          $srcFiles += "src\third_party\xxhash\xxhash.c"
+          
+          $sources = $srcFiles -join " "
 
-          $includes = "/I src /I src\core /I src\io /I src\platform\windows /I src\protocol\odin /I src\app /I src\third_party\lz4 /I src\third_party\md5 /I src\third_party\xxhash /I `"$VCPKG_INC`""
-          $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0"
-          $flags = "/std:c++latest /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /permissive- /wd4005 /wd4996"
-          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib `"$VCPKG_LIB\fmt.lib`" `"$VCPKG_LIB\spdlog.lib`""
+          $includes = "/I src /I src\core /I src\io /I src\platform\windows /I src\protocol\odin /I src\app /I src\third_party\lz4 /I src\third_party\md5 /I src\third_party\xxhash /I `"$INC_PATH`""
+          
+          # تعريفات مهمة لحل مشاكل winnt.h وتعارض std::byte
+          $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0 /D _CRT_SECURE_NO_WARNINGS /D _AMD64_"
+          
+          # استخدام c++20 بدلاً من latest لاستقرار أفضل مع Windows Headers
+          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
+          
+          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib `"$LIB_PATH\fmt.lib`" `"$LIB_PATH\spdlog.lib`""
 
-          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs"
+          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs /MACHINE:X64"
+          Write-Host "Executing Build Command..." -ForegroundColor Cyan
           Invoke-Expression $cmd
           
-          if (!(Test-Path "ekoflash.exe")) { throw "Engine Build Failed!" }
+          if (!(Test-Path "ekoflash.exe")) { 
+            Write-Error "C++ Build Failed! EXE not found."
+            exit 1 
+          }
 
       - name: Build & Publish GUI (.NET 8 WPF)
         shell: pwsh
@@ -115,25 +131,18 @@ jobs:
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -o ./publish
 
-      - name: Final Packaging (Bundle Everything)
+      - name: Final Packaging
         shell: pwsh
         run: |
-          # نقل المحرك
           Copy-Item "ekoflash.exe" "./publish/" -Force
-          
-          # نقل الأدوات التي حملناها من الإنترنت
-          Copy-Item "external_tools\*" "./publish/" -Force
-          
-          # نقل الأيقونة وملفات الترخيص إذا وجدت
+          if (Test-Path "external_tools") { Copy-Item "external_tools\*" "./publish/" -Force }
           if (Test-Path "icon.ico") { Copy-Item "icon.ico" "./publish/" -Force }
-
-          # تسمية البرنامج النهائي
           if (Test-Path "./publish/EkoFlashTool.exe") {
             Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
           }
 
-      - name: Upload Final Bundle
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_PRO_v3.0_FULL
+          name: EKOFLASH_PRO_V3_FINAL
           path: ./publish/
