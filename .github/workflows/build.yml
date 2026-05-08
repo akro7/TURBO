@@ -1,125 +1,140 @@
-name: Build EKOFLASH PRO v3.0
+name: Windows Build
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
-    
-    env:
-      VCPKG_DEFAULT_TRIPLET: x64-windows-static
 
     steps:
-      - name: Check Out Repository
+      # ==========================================
+      # Checkout Repository
+      # ==========================================
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Set up MSVC
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Setup Developer Command Prompt
+      # ==========================================
+      # Setup MSVC Compiler
+      # ==========================================
+      - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
 
-      - name: Install C++ Dependencies (vcpkg)
-        shell: pwsh
+      # ==========================================
+      # Build TURBO FLASH TOOL
+      # ==========================================
+      - name: Build TURBO FLASH TOOL
+        shell: powershell
         run: |
-          cd $env:VCPKG_INSTALLATION_ROOT
-          .\vcpkg install fmt spdlog --triplet x64-windows-static
-          .\vcpkg integrate install
 
-      - name: Download External Tools
-        shell: pwsh
-        run: |
-          if (!(Test-Path "external_tools")) { New-Item -ItemType Directory -Path "external_tools" -Force }
-          
-          # Platform Tools
-          Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile pt.zip
-          Expand-Archive pt.zip . -Force
-          Copy-Item "platform-tools\adb.exe", "platform-tools\fastboot.exe", "platform-tools\AdbWinApi.dll", "platform-tools\AdbWinUsbApi.dll" "external_tools\" -Force
-          
-          # LibUSB
-          Invoke-WebRequest "https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.7z" -OutFile libusb.7z
-          7z x libusb.7z -olibusb_dir -y
-          $dll = Get-ChildItem libusb_dir -Recurse -Filter "libusb-1.0.dll" | Where-Object { $_.FullName -match "MS64|x64" } | Select-Object -First 1
-          Copy-Item $dll.FullName "external_tools\" -Force
+          $ErrorActionPreference = "Stop"
 
-          # Zadig
-          Invoke-WebRequest "https://github.com/pbatard/libwdi/releases/download/v1.5.1/zadig-2.9.exe" -OutFile "external_tools\zadig.exe"
+          Write-Host "====================================="
+          Write-Host " Building TURBO FLASH TOOL"
+          Write-Host "====================================="
 
-      - name: Prepare C++ Source Files
-        shell: pwsh
-        run: |
-          if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
-          # إضافة windows.h لضمان تعريف LONG_PTR قبل أي شيء آخر
-          @"
-          #include <windows.h>
-          #include "cli_mode.hpp"
-          int main(int argc, char* argv[]) {
-              if (brokkr::app::should_run_cli(argc, argv)) {
-                  return brokkr::app::run_cli(argc, argv);
-              }
-              return 0;
+          # ==========================================
+          # Compiler Flags
+          # ==========================================
+
+          # FIXED:
+          # Removed:
+          #   /std:c++latest
+          #   /permissive-
+          #
+          # They break Windows SDK 26100 headers.
+
+          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
+
+          # ==========================================
+          # Defines
+          # ==========================================
+
+          $defines = @(
+            "/D BROKKR_PLATFORM_WINDOWS",
+            "/D WIN32",
+            "/D _WINDOWS",
+            "/D WIN32_LEAN_AND_MEAN",
+            "/D NOMINMAX",
+            "/D _WIN32_WINNT=0x0A00",
+            "/D SPDLOG_FMT_EXTERNAL",
+            "/D FMT_HEADER_ONLY=0"
+          ) -join " "
+
+          # ==========================================
+          # Include Paths
+          # ==========================================
+
+          $includes = @(
+            "/I external",
+            "/I external\spdlog\include",
+            "/I external\fmt\include",
+            "/I external\lz4",
+            "/I external\xxhash",
+            "/I external\md5",
+            "/I src"
+          ) -join " "
+
+          # ==========================================
+          # Source Files
+          # ==========================================
+
+          $sources = @(
+            "src\main.cpp",
+            "src\engine.cpp",
+            "src\cache.cpp",
+            "src\utils.cpp",
+            "src\platform_windows.cpp",
+
+            "external\lz4\lz4.c",
+            "external\md5\md5.c",
+            "external\xxhash\xxhash.c"
+          ) -join " "
+
+          # ==========================================
+          # Libraries
+          # ==========================================
+
+          $libs = @(
+            "user32.lib",
+            "advapi32.lib",
+            "shell32.lib",
+            "ole32.lib",
+            "ws2_32.lib"
+          ) -join " "
+
+          # ==========================================
+          # Build Command
+          # ==========================================
+
+          $cmd = "cl.exe $flags $defines $includes $sources /Fe:TURBO_FLASH_TOOL.exe /link $libs"
+
+          Write-Host ""
+          Write-Host "Running Build:"
+          Write-Host $cmd
+          Write-Host ""
+
+          cmd /c $cmd
+
+          # ==========================================
+          # Validate Build
+          # ==========================================
+
+          if (!(Test-Path "TURBO_FLASH_TOOL.exe")) {
+            throw "Engine Build Failed!"
           }
-          "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
 
-      - name: Build C++ Engine (ekoflash.exe)
-        shell: pwsh
-        run: |
-          $VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
-          # مسار include ومسار lib لـ vcpkg بشكل مباشر ومؤكد
-          $INC_VCPKG = Join-Path $VCPKG_ROOT "installed\x64-windows-static\include"
-          $LIB_VCPKG = Join-Path $VCPKG_ROOT "installed\x64-windows-static\lib"
+          Write-Host ""
+          Write-Host "====================================="
+          Write-Host " BUILD SUCCESSFUL"
+          Write-Host "====================================="
 
-          # تجميع الملفات
-          $srcFiles = Get-ChildItem -Path "src\protocol\odin\*.cpp", "src\core\*.cpp", "src\io\*.cpp", "src\platform\windows\*.cpp", "src\app\*.cpp" | % { $_.FullName }
-          $srcFiles += @("src\third_party\lz4\lz4.c", "src\third_party\md5\md5.c", "src\third_party\xxhash\xxhash.c")
-          $sources = $srcFiles -join " "
-
-          $includes = "/I src /I src\core /I src\io /I src\platform\windows /I src\protocol\odin /I src\app /I src\third_party\lz4 /I src\third_party\md5 /I src\third_party\xxhash /I `"$INC_VCPKG`""
-          
-          # الحل الجذري لأخطاء winnt.h و basetsd.h:
-          # 1. _HAS_STD_BYTE=0 لتعطيل تعارض std::byte
-          # 2. _AMD64_ لتعريف المعمارية بشكل صريح
-          # 3. استخدام c++17 لضمان استقرار ملفات الهيدر الخاصة بالـ SDK
-          $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0 /D _CRT_SECURE_NO_WARNINGS /D _AMD64_ /D _HAS_STD_BYTE=0 /D STRICT"
-          $flags = "/std:c++17 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
-          
-          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib `"$LIB_VCPKG\fmt.lib`" `"$LIB_VCPKG\spdlog.lib`""
-
-          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs /MACHINE:X64"
-          Write-Host "Running Build Command..." -ForegroundColor Cyan
-          Invoke-Expression $cmd
-          
-          if (!(Test-Path "ekoflash.exe")) { throw "Build Failed: ekoflash.exe not generated" }
-
-      - name: Build & Publish GUI (.NET 8 WPF)
-        shell: pwsh
-        run: |
-          dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -o ./publish
-
-      - name: Final Packaging
-        shell: pwsh
-        run: |
-          Copy-Item "ekoflash.exe" "./publish/" -Force
-          if (Test-Path "external_tools") { Copy-Item "external_tools\*" "./publish/" -Force }
-          if (Test-Path "icon.ico") { Copy-Item "icon.ico" "./publish/" -Force }
-          if (Test-Path "./publish/EkoFlashTool.exe") {
-            Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
-          }
-
-      - name: Upload Artifact
+      # ==========================================
+      # Upload Artifact
+      # ==========================================
+      - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_PRO_V3_FINAL
-          path: ./publish/
+          name: TURBO_FLASH_TOOL
+          path: TURBO_FLASH_TOOL.exe
