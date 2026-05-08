@@ -10,7 +10,15 @@
     <!-- اسم الـ assembly ثابت دايماً -->
     <AssemblyName>EkoFlashTool</AssemblyName>
     <RootNamespace>MKVenomTool</RootNamespace>
-    <Product>MKVenomTool</Product>
+    <Product>MK VENOM PRO</Product>
+
+    <!-- معلومات المنتج -->
+    <Company>AKRO × MK VENOM PRO</Company>
+    <Copyright>Copyright © 2025 akro7 &amp; mkpromvp – GPL-3.0</Copyright>
+    <Description>Samsung Official ROM Flashing Tool – Safe &amp; Trusted</Description>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
 
     <!-- أيقونة التطبيق -->
     <ApplicationIcon>app.ico</ApplicationIcon>
