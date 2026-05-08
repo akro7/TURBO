@@ -18,18 +18,15 @@ namespace EkoFlashTool
     {
         private CancellationTokenSource _cancelTokenSource;
         private Process _fastbootProcess;
-        private DataReceiver _dataReceiver;
 
         public MainWindow()
         {
             InitializeComponent();
-            _dataReceiver = new DataReceiver(Dispatcher);
             LoadSettings();
         }
 
         private void LoadSettings()
         {
-            // تحميل الإعدادات المحفوظة
             if (Properties.Settings.Default.SelectedTabIndex >= 0)
                 MainTabControl.SelectedIndex = Properties.Settings.Default.SelectedTabIndex;
         }
@@ -90,7 +87,6 @@ namespace EkoFlashTool
                 StandardErrorEncoding = Encoding.UTF8
             };
 
-            // إضافة الوسائط من واجهة المستخدم
             var args = new List<string>();
             if (OdinCheckBox.IsChecked == true) args.Add("--odin");
             if (PitFileCheckBox.IsChecked == true && !string.IsNullOrWhiteSpace(PitFilePathTextBox.Text))
@@ -137,15 +133,6 @@ namespace EkoFlashTool
         {
             _fastbootProcess?.Kill();
             _cancelTokenSource?.Cancel();
-        }
-
-        // وظيفة مساعدة لكتابة البيانات بشكل غير متزامن إلى الـ TextBox
-        private async Task WriteAsync(string message, Color color)
-        {
-            await Dispatcher.InvokeAsync(() =>
-            {
-                AppendText(message, color);
-            });
         }
     }
 }
