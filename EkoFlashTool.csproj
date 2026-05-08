@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -7,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
+    <!-- مهم للـ workflow الحالي -->
     <AssemblyName>EkoFlashTool</AssemblyName>
     <RootNamespace>MKVenomTool</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
@@ -23,38 +23,28 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="app.ico" />
+    <None Include="app.ico">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
-  <!-- Keep these resources explicit so workflow patch step does not create malformed ItemGroup -->
   <ItemGroup>
-    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')">
-      <LogicalName>res.ok.ekoflash.exe</LogicalName>
-    </EmbeddedResource>
+    <EmbeddedResource Include="adb.exe" Condition="Exists('adb.exe')"
+                      LogicalName="res.pt.adb.exe" />
+    <EmbeddedResource Include="fastboot.exe" Condition="Exists('fastboot.exe')"
+                      LogicalName="res.pt.fastboot.exe" />
+    <EmbeddedResource Include="AdbWinApi.dll" Condition="Exists('AdbWinApi.dll')"
+                      LogicalName="res.pt.AdbWinApi.dll" />
+    <EmbeddedResource Include="AdbWinUsbApi.dll" Condition="Exists('AdbWinUsbApi.dll')"
+                      LogicalName="res.pt.AdbWinUsbApi.dll" />
 
-    <EmbeddedResource Include="adb.exe" Condition="Exists('adb.exe')">
-      <LogicalName>res.pt.adb.exe</LogicalName>
-    </EmbeddedResource>
+    <!-- محرك الأودين الجديد -->
+    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')"
+                      LogicalName="res.ok.ekoflash.exe" />
+    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')"
+                      LogicalName="res.ok.libusb.dll" />
 
-    <EmbeddedResource Include="fastboot.exe" Condition="Exists('fastboot.exe')">
-      <LogicalName>res.pt.fastboot.exe</LogicalName>
-    </EmbeddedResource>
-
-    <EmbeddedResource Include="AdbWinApi.dll" Condition="Exists('AdbWinApi.dll')">
-      <LogicalName>res.pt.AdbWinApi.dll</LogicalName>
-    </EmbeddedResource>
-
-    <EmbeddedResource Include="AdbWinUsbApi.dll" Condition="Exists('AdbWinUsbApi.dll')">
-      <LogicalName>res.pt.AdbWinUsbApi.dll</LogicalName>
-    </EmbeddedResource>
-
-    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')">
-      <LogicalName>res.ok.libusb.dll</LogicalName>
-    </EmbeddedResource>
-
-    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')">
-      <LogicalName>res.zd.zadig.exe</LogicalName>
-    </EmbeddedResource>
+    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')"
+                      LogicalName="res.zd.zadig.exe" />
   </ItemGroup>
-
 </Project>
