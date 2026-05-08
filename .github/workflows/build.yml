@@ -23,9 +23,21 @@ jobs:
 
       - name: Install dependencies via vcpkg
         run: |
-          # تثبيت المكتبات مع تحديد التريبلت بشكل صريح
           vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
           vcpkg integrate install
+
+      - name: Patch Log Headers (Fix C2039/C2065)
+        shell: pwsh
+        run: |
+          # هذا السطر يحل مشكلة fmt::vformat عبر التأكد من تضمين Header المكتبة بشكل صحيح في ملفات اللوج
+          $logFiles = Get-ChildItem -Path "src\core\log.hpp", "src\app\cli_mode.hpp" -ErrorAction SilentlyContinue
+          foreach ($file in $logFiles) {
+            $content = Get-Content $file.FullName
+            if ($content -notcontains '#include <fmt/format.h>') {
+              "#include <fmt/format.h>`n" + $content | Set-Content $file.FullName
+              Write-Host "Patched: $($file.Name)" -ForegroundColor Cyan
+            }
+          }
 
       - name: Generate main.cpp
         shell: pwsh
@@ -42,12 +54,10 @@ jobs:
       - name: Build ekoflash.exe (Static C++)
         shell: pwsh
         run: |
-          # استخدام متغير البيئة الافتراضي لـ vcpkg في GitHub Actions
           $VCPKG_ROOT = "$env:VCPKG_INSTALLATION_ROOT"
           $VCPKG_INC = "$VCPKG_ROOT\installed\x64-windows-static\include"
           $VCPKG_LIB = "$VCPKG_ROOT\installed\x64-windows-static\lib"
 
-          # إضافة الملفات البرمجية مع إضافة xxhash.c المفقود (سبب الخطأ في الصورة)
           $sources = @(
             "src\protocol\odin\flash.cpp",
             "src\protocol\odin\group_flasher.cpp",
@@ -71,7 +81,7 @@ jobs:
             "src\app\main.cpp",
             "src\third_party\lz4\lz4.c",
             "src\third_party\md5\md5.c",
-            "src\third_party\xxhash\xxhash.c" 
+            "src\third_party\xxhash\xxhash.c"
           )
 
           $includes = @(
@@ -93,11 +103,13 @@ jobs:
             "/D", "WIN32_LEAN_AND_MEAN",
             "/D", "NOMINMAX",
             "/D", "_WIN32_WINNT=0x0A00",
-            "/D", "SPDLOG_FMT_EXTERNAL"
+            "/D", "SPDLOG_FMT_EXTERNAL",
+            "/D", "FMT_HEADER_ONLY=0" # نحدد أننا نستخدم المكتبة كـ Compiled Lib
           )
 
+          # تم استخدام /std:c++20 و /permissive- لتحسين التوافق مع المكتبات الحديثة
           $flags = @(
-            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus"
+            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus", "/permissive-"
           )
 
           $linkerFlags = @(
@@ -106,11 +118,6 @@ jobs:
             "Ws2_32.lib", "SetupAPI.lib", "User32.lib", "Advapi32.lib", "fmt.lib"
           )
 
-          Write-Host "Checking if vcpkg headers exist at: $VCPKG_INC"
-          if (Test-Path "$VCPKG_INC\fmt\format.h") { Write-Host "Headers Found!" -ForegroundColor Green }
-          else { Write-Error "Headers NOT Found at $VCPKG_INC" }
-
-          Write-Host "Compiling Engine..."
           & cl.exe $flags $includes $defines $sources /Fe:ekoflash.exe $linkerFlags
 
       - name: Upload Engine Artifact
@@ -141,7 +148,7 @@ jobs:
       - name: Publish EKOFLASH PRO
         shell: pwsh
         run: |
-          # بناء مشروع الـ C# ودمج المحرك داخله
+          # التأكد من وجود ملف المشروع EkoFlashTool.csproj في مساره
           dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
 
       - name: Rename and Finalize
@@ -152,7 +159,7 @@ jobs:
           }
 
       - name: Upload Final Release
-        uses: actions/upload-artifact@v4
+        uses: actions/artifact@v4
         with:
           name: EKOFLASH_PRO_BUNDLE
           path: ./publish/EKOFLASH_PRO_v3.0.exe
