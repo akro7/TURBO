@@ -1,156 +1,136 @@
-name: turbo Build
+name: Build EKOFLASH PRO v3.0
 
 on:
   push:
+    branches: [ "main" ]
   pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
 
     steps:
-
-      # ==========================================
-      # Checkout Repository
-      # ==========================================
-      - name: Checkout
+      - name: Check Out Repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      # ==========================================
-      # Setup MSVC
-      # ==========================================
-      - name: Setup MSVC
+      - name: Set up MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-      # ==========================================
-      # DEBUG PROJECT STRUCTURE
-      # ==========================================
-      - name: Show Project Structure
-        shell: powershell
+      - name: Install C++ Dependencies (vcpkg)
+        shell: pwsh
         run: |
+          cd $env:VCPKG_INSTALLATION_ROOT
+          .\vcpkg install fmt spdlog --triplet x64-windows-static
+          .\vcpkg integrate install
 
-          Write-Host "====================================="
-          Write-Host " ROOT FILES "
-          Write-Host "====================================="
-
-          Get-ChildItem
-
-          Write-Host ""
-          Write-Host "====================================="
-          Write-Host " ALL FILES "
-          Write-Host "====================================="
-
-          Get-ChildItem -Recurse -File | Select-Object FullName
-
-      # ==========================================
-      # Build TURBO FLASH TOOL
-      # ==========================================
-      - name: Build TURBO FLASH TOOL
-        shell: powershell
+      - name: Download External Tools
+        shell: pwsh
         run: |
+          if (!(Test-Path "external_tools")) { New-Item -ItemType Directory -Path "external_tools" -Force }
+          
+          # Platform Tools
+          Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile pt.zip
+          Expand-Archive pt.zip . -Force
+          Copy-Item "platform-tools\adb.exe", "platform-tools\fastboot.exe", "platform-tools\AdbWinApi.dll", "platform-tools\AdbWinUsbApi.dll" "external_tools\" -Force
+          
+          # Zadig
+          Invoke-WebRequest "https://github.com/pbatard/libwdi/releases/download/v1.5.1/zadig-2.9.exe" -OutFile "external_tools\zadig.exe"
 
-          $ErrorActionPreference = "Stop"
-
-          Write-Host "====================================="
-          Write-Host " Building TURBO FLASH TOOL"
-          Write-Host "====================================="
-
-          # ==========================================
-          # Compiler Flags
-          # ==========================================
-
-          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
-
-          # ==========================================
-          # Defines
-          # ==========================================
-
-          $defines = @(
-            "/D BROKKR_PLATFORM_WINDOWS",
-            "/D WIN32",
-            "/D _WINDOWS",
-            "/D WIN32_LEAN_AND_MEAN",
-            "/D NOMINMAX",
-            "/D _WIN32_WINNT=0x0A00",
-            "/D SPDLOG_FMT_EXTERNAL",
-            "/D FMT_HEADER_ONLY=0"
-          ) -join " "
-
-          # ==========================================
-          # Include Paths
-          # ==========================================
-
-          $includes = @(
-            "/I external",
-            "/I external\spdlog\include",
-            "/I external\fmt\include",
-            "/I external\lz4",
-            "/I external\xxhash",
-            "/I external\md5",
-            "/I src"
-          ) -join " "
-
-          # ==========================================
-          # Source Files
-          # ==========================================
-
-          $sources = @(
-            "src\main.cpp",
-            "src\engine.cpp",
-            "src\cache.cpp",
-            "src\utils.cpp",
-            "src\platform_windows.cpp",
-
-            "external\lz4\lz4.c",
-            "external\md5\md5.c",
-            "external\xxhash\xxhash.c"
-          ) -join " "
-
-          # ==========================================
-          # Libraries
-          # ==========================================
-
-          $libs = @(
-            "user32.lib",
-            "advapi32.lib",
-            "shell32.lib",
-            "ole32.lib",
-            "ws2_32.lib"
-          ) -join " "
-
-          # ==========================================
-          # Build Command
-          # ==========================================
-
-          $cmd = "cl.exe $flags $defines $includes $sources /Fe:TURBO_FLASH_TOOL.exe /link $libs"
-
-          Write-Host ""
-          Write-Host "====================================="
-          Write-Host " BUILD COMMAND "
-          Write-Host "====================================="
-          Write-Host $cmd
-          Write-Host ""
-
-          cmd /c $cmd
-
-          # ==========================================
-          # Validate Build
-          # ==========================================
-
-          if (!(Test-Path "TURBO_FLASH_TOOL.exe")) {
-            throw "Engine Build Failed!"
+      - name: Prepare Source Code Fixes
+        shell: pwsh
+        run: |
+          # 1. حل مشكلة تعارض الأسماء (Status Ambiguity) برمجياً قبل البناء
+          # سنقوم بتحديد namespace الكامل لـ Status في ملف الكاش
+          $cacheFile = "src\app\md5_xxh3_cache.cpp"
+          if (Test-Path $cacheFile) {
+              (Get-Content $cacheFile) -replace 'Status::', 'brokkr::core::Status::' | Set-Content $cacheFile
           }
 
-          Write-Host ""
-          Write-Host "====================================="
-          Write-Host " BUILD SUCCESSFUL "
-          Write-Host "====================================="
+          # 2. إنشاء ملف main.cpp نظيف مع ضمان ترتيب الـ Headers
+          if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
+          @"
+          #define WIN32_LEAN_AND_MEAN
+          #include <windows.h>
+          #include <iostream>
+          #include "cli_mode.hpp"
 
-      # ==========================================
-      # Upload Artifact
-      # ==========================================
-      - name: Upload EXE
+          int main(int argc, char* argv[]) {
+              try {
+                  if (brokkr::app::should_run_cli(argc, argv)) {
+                      return brokkr::app::run_cli(argc, argv);
+                  }
+              } catch (const std::exception& e) {
+                  std::cerr << "Fatal Error: " << e.what() << std::endl;
+                  return 1;
+              }
+              return 0;
+          }
+          "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
+
+      - name: Build C++ Engine (ekoflash.exe)
+        shell: pwsh
+        run: |
+          $VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          $INC_VCPKG = Join-Path $VCPKG_ROOT "installed\x64-windows-static\include"
+          $LIB_VCPKG = Join-Path $VCPKG_ROOT "installed\x64-windows-static\lib"
+
+          # حل مشكلة ملفات third_party المفقودة: البحث عنها بشكل مرن
+          $srcFiles = Get-ChildItem -Path "src\*.cpp", "src\*.c" -Recurse | Where-Object { $_.FullName -notmatch "tests" } | % { "`"$($_.FullName)`"" }
+          $sources = $srcFiles -join " "
+
+          # تجميع كل مسارات الـ Include
+          $includeDirs = Get-ChildItem -Path "src" -Directory -Recurse | % { "/I `"$($_.FullName)`"" }
+          $includes = "/I src " + ($includeDirs -join " ") + " /I `"$INC_VCPKG`""
+          
+          # تعريفات البيئة لحل أخطاء Windows SDK و تعارضات المكتبات
+          $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0 /D _CRT_SECURE_NO_WARNINGS /D _AMD64_ /D _HAS_STD_BYTE=0"
+          
+          # الأعلام (Flags): /permissive- ضرورية جداً لحل تعارض الـ Namespaces
+          $flags = "/std:c++17 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /permissive- /wd4005 /wd4996"
+          
+          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib Shell32.lib Ole32.lib `"$LIB_VCPKG\fmt.lib`" `"$LIB_VCPKG\spdlog.lib`""
+
+          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs /MACHINE:X64"
+          Write-Host "Executing Build: $cmd" -ForegroundColor Cyan
+          Invoke-Expression $cmd
+          
+          if (!(Test-Path "ekoflash.exe")) { throw "Build Failed: ekoflash.exe not found" }
+
+      - name: Build & Publish GUI (.NET 8 WPF)
+        shell: pwsh
+        run: |
+          dotnet restore EkoFlashTool.csproj
+          dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o ./publish
+
+      - name: Final Packaging
+        shell: pwsh
+        run: |
+          # دمج محرك C++ مع واجهة .NET
+          Copy-Item "ekoflash.exe" "./publish/" -Force
+          if (Test-Path "external_tools") { Copy-Item "external_tools\*" "./publish/" -Force }
+          
+          # إعادة تسمية الملف النهائي
+          if (Test-Path "./publish/EkoFlashTool.exe") {
+            Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
+          }
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TURBO_FLASH_TOOL
-          path: TURBO_FLASH_TOOL.exe
+          name: EKOFLASH_PRO_V3_FINAL
+          path: ./publish/
