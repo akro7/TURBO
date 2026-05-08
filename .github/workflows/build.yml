@@ -10,9 +10,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    
-    env:
-      VCPKG_DEFAULT_TRIPLET: x64-windows-static
 
     steps:
       - name: Checkout Code
@@ -23,63 +20,35 @@ jobs:
       - name: Setup MSVC
         uses: microsoft/setup-msbuild@v2
 
-      - name: Setup Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
         with:
-          arch: x64
+          version: '6.7.*'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          modules: 'qtbase qttools'
 
-      - name: Install C++ Dependencies (vcpkg)
+      - name: Build with CMake
         shell: pwsh
         run: |
-          cd $env:VCPKG_INSTALLATION_ROOT
-          .\vcpkg install fmt spdlog --triplet x64-windows-static
-          .\vcpkg integrate install
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A x64
+          cmake --build build --config Release --verbose
 
-      - name: Build C++ Engine (TURBO_FLASH_TOOL.exe)
+      - name: Find and Upload EXE
         shell: pwsh
         run: |
-          $VCPKG_PATH = $env:VCPKG_INSTALLATION_ROOT
-          $VCPKG_INC = "$VCPKG_PATH\installed\x64-windows-static\include"
-          $VCPKG_LIB = "$VCPKG_PATH\installed\x64-windows-static\lib"
-
-          $sources = Get-ChildItem -Path "src" -Recurse -Include "*.cpp","*.c" | 
-                     Where-Object { $_.FullName -notmatch "tests" } |
-                     Select-Object -ExpandProperty FullName
-
-          $includes = @(
-            "/I src",
-            "/I `"$VCPKG_INC`""
-          ) -join " "
-
-          $defines = @(
-            "/D BROKKR_PLATFORM_WINDOWS",
-            "/D WIN32",
-            "/D WIN32_LEAN_AND_MEAN",
-            "/D NOMINMAX",
-            "/D _WIN32_WINNT=0x0A00",
-            "/D SPDLOG_FMT_EXTERNAL",
-            "/D FMT_HEADER_ONLY=0",
-            "/D _CRT_SECURE_NO_WARNINGS"
-          ) -join " "
-
-          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
-
-          $linkLibs = @(
-            "Ws2_32.lib",
-            "SetupAPI.lib",
-            "User32.lib",
-            "Advapi32.lib",
-            "`"$VCPKG_LIB\fmt.lib`"",
-            "`"$VCPKG_LIB\spdlog.lib`""
-          ) -join " "
-
-          $cmd = "cl.exe $flags $defines $includes $sources /Fe:TURBO_FLASH_TOOL.exe /link $linkLibs /MACHINE:X64"
-
-          Write-Host $cmd
-          Invoke-Expression $cmd
-
-          if (!(Test-Path "TURBO_FLASH_TOOL.exe")) {
-              throw "Build Failed!"
+          $exe = Get-ChildItem -Path "build" -Recurse -Filter "TURBO_FLASH_TOOL.exe" -ErrorAction SilentlyContinue
+          if ($exe) {
+            Copy-Item $exe.FullName -Destination "TURBO_FLASH_TOOL.exe"
+            Write-Host "EXE found and copied: $($exe.FullName)"
+          } else {
+            # Fallback search
+            $exe = Get-ChildItem -Path "." -Recurse -Filter "*.exe" | Where-Object { $_.Name -like "*flash*" -or $_.Name -like "*turbo*" }
+            if ($exe) { Copy-Item $exe[0].FullName -Destination "TURBO_FLASH_TOOL.exe" }
           }
 
       - name: Upload Artifact
