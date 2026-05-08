@@ -16,7 +16,7 @@ namespace MKVenomTool
     public partial class MainWindow : Window
     {
         private enum FlashMode { Fastboot, Odin, Sideload, Tools, BackupRestore }
-        private enum OdinBackend { None, EkoEngine, OdinDriverOnly }
+        private enum OdinBackend { None, Heimdall, OdinDriverOnly }
 
         private FlashMode _mode = FlashMode.Fastboot;
         private OdinBackend _odinBackend = OdinBackend.None;
@@ -46,10 +46,10 @@ namespace MKVenomTool
             if (appsList != null) appsList.ItemsSource = _backupApps;
             if (setsList != null) setsList.ItemsSource = _backupSets;
 
-            AppendLog("EKO FLASH PRO v3.0 ready. · DEV: AHMED YOUNIS & MOHAMED KHALED PRO");
+            AppendLog("MK Venom Tool ready.");
             AppendLog($"platform-tools (adb)      : {(ToolsManager.ExeExists("platform-tools", "adb") ? "✓ ready" : "✗ missing")}");
             AppendLog($"platform-tools (fastboot) : {(ToolsManager.ExeExists("platform-tools", "fastboot") ? "✓ ready" : "✗ missing")}");
-            AppendLog($"ekoflash engine           : {(File.Exists("ekoflash.exe") ? "✓ ready" : "✗ missing")}");
+            AppendLog($"heimdall                  : {(ToolsManager.ExeExists("heimdall", "heimdall") ? "✓ ready" : "✗ missing")}");
             AppendLog($"zadig                     : {(ToolsManager.ExeExists("zadig", "zadig") ? "✓ ready" : "✗ missing")}");
         }
 
@@ -285,17 +285,28 @@ namespace MKVenomTool
                 return ok ? (true, "ADB CONNECTED", "ADB device detected.") : (false, "NO ADB DEVICE", "No ADB device found.");
             }
 
-            if (_mode == FlashMode.Odin)
+            bool hasH = ToolsManager.ExeExists("heimdall", "heimdall");
+            if (hasH)
             {
+                var r = await RunAsync("heimdall", "heimdall", "detect", 15000);
+                var full = (r.Out + r.Err).ToLower();
+                if (full.Contains("device detected")) { _odinBackend = OdinBackend.Heimdall; return (true, "DOWNLOAD MODE (HEIMDALL)", "Heimdall: device detected in download mode."); }
+
+                bool driverErr = full.Contains("libusb error") || full.Contains("failed to access") || full.Contains("no device");
                 bool samUsb = await SamsungUsbPresentAsync();
-                if (samUsb)
+                if (samUsb || driverErr)
                 {
-                    _odinBackend = OdinBackend.EkoEngine;
-                    return (true, "DOWNLOAD MODE (EKOfly)", "Samsung USB detected. ekoflash engine ready.");
+                    _odinBackend = OdinBackend.OdinDriverOnly;
+                    return (true, "DOWNLOAD MODE (ODIN DRIVER)",
+                        "Samsung USB found but Heimdall cannot open device (libusb error -5).\nGo to ADB/TOOLS → Launch Zadig → install WinUSB driver → re-detect.");
                 }
+
+                return (false, "NO DOWNLOAD DEVICE", "Heimdall: no device found in download mode.");
             }
 
-            return (false, "NO DEVICE DETECTED", "Check cable and drivers.");
+            bool sam = await SamsungUsbPresentAsync();
+            if (sam) { _odinBackend = OdinBackend.OdinDriverOnly; return (true, "DOWNLOAD MODE (ODIN DRIVER)", "Samsung USB detected. Heimdall NOT installed."); }
+            return (false, "NO DOWNLOAD DEVICE", "No download-mode device detected.");
         }
 
         private async Task<bool> SamsungUsbPresentAsync()
@@ -384,44 +395,268 @@ namespace MKVenomTool
             if (!_deviceChecked) { AppendLog("Detect device first."); return; }
             if (!_deviceConnected) { AppendLog("Device not connected."); return; }
 
-            if (!File.Exists("ekoflash.exe"))
+            if (_odinBackend == OdinBackend.OdinDriverOnly)
             {
-                AppendLog("ERROR: ekoflash.exe (engine) not found in root folder!");
-                return;
+                AppendLog("══════════════════════════════════════════");
+                AppendLog("  libusb error -5 — WinUSB driver needed");
+                AppendLog("══════════════════════════════════════════");
+                AppendLog("  1. Go to ADB/TOOLS tab → Launch Zadig");
+                AppendLog(            {
+                if (kv.Value == null) continue;
+                kv.Value.BorderThickness = kv.Key == theme ? new Thickness(3) : new Thickness(1.5);
+                kv.Value.Opacity = kv.Key == theme ? 1.0 : 0.6;
             }
+
+            SetModeButtonVisual();
+        }
+
+        // Tabs
+        private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
+        private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
+
+        private void ShowTab(string tab)
+        {
+            if (TabCmdPanel == null) return;
+            TabCmdPanel.Visibility = tab == "cmd" ? Visibility.Visible : Visibility.Collapsed;
+            TabOptionsPanel.Visibility = tab == "options" ? Visibility.Visible : Visibility.Collapsed;
+
+            var accent = (Brush)Resources["AccentBrush"];
+            var muted = (Brush)Resources["TextMutedBrush"];
+            TabCmdBtn.Foreground = tab == "cmd" ? accent : muted;
+            TabOptionsBtn.Foreground = tab == "options" ? accent : muted;
+            TabCmdBtn.BorderBrush = tab == "cmd" ? accent : Brushes.Transparent;
+            TabOptionsBtn.BorderBrush = tab == "options" ? accent : Brushes.Transparent;
+        }
+
+        // Modes
+        private void FastbootMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
+        private void OdinMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
+        private void SideloadMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
+        private void ToolsMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Tools);
+        private void BackupRestoreMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.BackupRestore);
+
+        private void SwitchMode(FlashMode mode)
+        {
+            _mode = mode;
+            _odinBackend = OdinBackend.None;
+            _deviceChecked = false;
+            _deviceConnected = false;
+            SetModeButtonVisual();
+
+            if (_uiReady)
+            {
+                PanelFastboot.Visibility = mode == FlashMode.Fastboot ? Visibility.Visible : Visibility.Collapsed;
+                PanelOdin.Visibility = mode == FlashMode.Odin ? Visibility.Visible : Visibility.Collapsed;
+                PanelSideload.Visibility = mode == FlashMode.Sideload ? Visibility.Visible : Visibility.Collapsed;
+                PanelTools.Visibility = mode == FlashMode.Tools ? Visibility.Visible : Visibility.Collapsed;
+
+                var backupPanel = GetBackupPanel();
+                if (backupPanel != null)
+                    backupPanel.Visibility = mode == FlashMode.BackupRestore ? Visibility.Visible : Visibility.Collapsed;
+
+                DeviceStatusText.Text = "Not checked";
+                DeviceStatusText.Foreground = (Brush)Resources["WarningBrush"];
+            }
+
+            UpdateCommandPreview();
+            AppendLog($"Mode → {mode}.");
+        }
+
+        private void SetModeButtonVisual()
+        {
+            var on = (Brush)Resources["AccentSoftBrush"];
+            var off = new SolidColorBrush(Color.FromArgb(0x2D, 0x18, 0x25, 0x3D));
+            FastbootBtn.Background = _mode == FlashMode.Fastboot ? on : off;
+            OdinBtn.Background = _mode == FlashMode.Odin ? on : off;
+            SideloadBtn.Background = _mode == FlashMode.Sideload ? on : off;
+            ToolsBtn.Background = _mode == FlashMode.Tools ? on : off;
+
+            var backupBtn = GetBackupModeButton();
+            if (backupBtn != null)
+                backupBtn.Background = _mode == FlashMode.BackupRestore ? on : off;
+        }
+
+        private void BuildFastbootRows()
+        {
+            _fbRows = new ObservableCollection<FlashRow>();
+            foreach (var e in new[] { ("boot", "BOOT"), ("recovery", "RECOVERY"), ("system", "SYSTEM"), ("vendor", "VENDOR"), ("product", "PRODUCT"), ("vbmeta", "VBMETA"), ("vendor_boot", "VENDOR_BOOT"), ("userdata", "USERDATA") })
+                _fbRows.Add(new FlashRow { Key = e.Item1, Label = e.Item2 });
+
+            foreach (var r in _fbRows)
+                r.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(FlashRow.FilePath)) UpdateCommandPreview(); };
+
+            RowsList.ItemsSource = _fbRows;
+        }
+
+        private void BuildOdinRows()
+        {
+            _odinRows = new ObservableCollection<FlashRow>();
+            foreach (var e in new[] { ("BL", "BL"), ("AP", "AP"), ("CP", "CP"), ("CSC", "CSC"), ("USERDATA", "USERDATA") })
+                _odinRows.Add(new FlashRow { Key = e.Item1, Label = e.Item2 });
+
+            foreach (var r in _odinRows)
+                r.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(FlashRow.FilePath)) UpdateCommandPreview(); };
+
+            OdinRowsList.ItemsSource = _odinRows;
+        }
+
+        // Browse
+        private void Browse_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string key) return;
+            var row = _fbRows.FirstOrDefault(r => r.Key == key); if (row == null) return;
+            var dlg = new OpenFileDialog { Filter = "Flash files (*.img;*.bin;*.zip)|*.img;*.bin;*.zip|All files (*.*)|*.*", CheckFileExists = true };
+            if (dlg.ShowDialog() == true) { row.FilePath = dlg.FileName; AppendLog($"FB {row.Label}: {row.FilePath}"); }
+        }
+
+        private void BrowseOdin_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string key) return;
+            var row = _odinRows.FirstOrDefault(r => r.Key == key); if (row == null) return;
+            var dlg = new OpenFileDialog { Filter = "Flash files (*.tar;*.md5;*.img;*.bin)|*.tar;*.md5;*.img;*.bin|All files (*.*)|*.*", CheckFileExists = true };
+            if (dlg.ShowDialog() == true) { row.FilePath = dlg.FileName; AppendLog($"Odin {row.Label}: {row.FilePath}"); }
+        }
+
+        private void BrowsePit_Click(object s, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog { Filter = "PIT files (*.pit)|*.pit|All files (*.*)|*.*", CheckFileExists = true };
+            if (dlg.ShowDialog() == true) { _pitFilePath = dlg.FileName; PitPathBox.Text = _pitFilePath; AppendLog($"PIT: {_pitFilePath}"); UpdateCommandPreview(); }
+        }
+
+        private void ClearPit_Click(object s, RoutedEventArgs e)
+        {
+            _pitFilePath = "";
+            PitPathBox.Text = "";
+            AppendLog("PIT cleared.");
+            UpdateCommandPreview();
+        }
+
+        private void BrowseSideload_Click(object s, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog { Filter = "ZIP files (*.zip)|*.zip|All files (*.*)|*.*", CheckFileExists = true };
+            if (dlg.ShowDialog() == true) { SideloadPathBox.Text = dlg.FileName; AppendLog($"Sideload: {dlg.FileName}"); UpdateCommandPreview(); }
+        }
+
+        private void BrowseApk_Click(object s, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog { Filter = "APK files (*.apk)|*.apk|All files (*.*)|*.*", CheckFileExists = true };
+            if (dlg.ShowDialog() == true) { ApkPathBox.Text = dlg.FileName; AppendLog($"APK: {dlg.FileName}"); }
+        }
+
+        // Detect
+        private async void DetectDevice_Click(object s, RoutedEventArgs e)
+        {
+            DeviceStatusText.Text = "Checking...";
+            DeviceStatusText.Foreground = (Brush)Resources["WarningBrush"];
+            var r = await DetectAsync();
+            _deviceChecked = true; _deviceConnected = r.ok;
+            DeviceStatusText.Text = r.text;
+            DeviceStatusText.Foreground = r.ok ? new SolidColorBrush(Color.FromRgb(77, 255, 154)) : new SolidColorBrush(Color.FromRgb(255, 122, 122));
+            foreach (var line in r.log.Split('\n')) if (!string.IsNullOrWhiteSpace(line)) AppendLog(line.Trim());
+        }
+
+        private async Task<(bool ok, string text, string log)> DetectAsync()
+        {
+            if (_mode == FlashMode.Fastboot || _mode == FlashMode.Tools)
+            {
+                var r = await RunAsync("platform-tools", "fastboot", "devices", 12000);
+                bool ok = (r.Out + r.Err).ToLower().Contains("fastboot");
+                return ok ? (true, "FASTBOOT CONNECTED", "Fastboot device detected.") : (false, "NO FASTBOOT DEVICE", "No fastboot device found.");
+            }
+
+            if (_mode == FlashMode.Sideload || _mode == FlashMode.BackupRestore)
+            {
+                var r = await RunAsync("platform-tools", "adb", "devices", 12000);
+                var m = (r.Out + r.Err).ToLower();
+                bool ok = m.Contains("\tdevice") || m.Contains("\tsideload");
+                return ok ? (true, "ADB CONNECTED", "ADB device detected.") : (false, "NO ADB DEVICE", "No ADB device found.");
+            }
+
+            bool hasH = ToolsManager.ExeExists("heimdall", "heimdall");
+            if (hasH)
+            {
+                var r = await RunAsync("heimdall", "heimdall", "detect", 15000);
+                var full = (r.Out + r.Err).ToLower();
+                if (full.Contains("device detected")) { _odinBackend = OdinBackend.Heimdall; return (true, "DOWNLOAD MODE (HEIMDALL)", "Heimdall: device detected in download mode."); }
+
+                bool driverErr = full.Contains("libusb error") || full.Contains("failed to access") || full.Contains("no device");
+                bool samUsb = await SamsungUsbPresentAsync();
+                if (samUsb || driverErr)
+                {
+                    _odinBackend = OdinBackend.OdinDriverOnly;
+                    return (true, "DOWNLOAD MODE (ODIN DRIVER)",
+                        "Samsung USB found but Heimdall cannot open device (libusb error -5).\nGo to ADB/TOOLS → Launch Zadig → install WinUSB driver → re-detect.");
+                }
+
+                return (false, "NO DOWNLOAD DEVICE", "Heimdall: no device found in download mode.");
+            }
+
+            bool sam = await SamsungUsbPresentAsync();
+            if (sam) { _odinBackend = OdinBackend.OdinDriverOnly; return (true, "DOWNLOAD MODE (ODIN DRIVER)", "Samsung USB detected. Heimdall NOT installed."); }
+            return (false, "NO DOWNLOAD DEVICE", "No download-mode device detected.");
+        }
+
+        private async Task<bool> SamsungUsbPresentAsync()
+        {
+            var r = await RunProcessAsync("pnputil.exe", "/enum-devices /connected", 12000);
+            return (r.Out + r.Err).ToUpper().Contains("VID_04E8");
+        }
+
+        // Flash handlers
+        private async void FlashOne_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string key) return;
+            var row = _fbRows.FirstOrDefault(r => r.Key == key);
+            if (row == null || string.IsNullOrWhiteSpace(row.FilePath)) { AppendLog($"No file for {key}."); return; }
+            await FlashFastbootAsync(new List<FlashRow> { row });
+        }
+
+        private async void FlashOneOdin_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button b || b.Tag is not string key) return;
+            var row = _odinRows.FirstOrDefault(r => r.Key == key);
+            if (row == null || string.IsNullOrWhiteSpace(row.FilePath)) { AppendLog($"No file for {key}."); return; }
+            await FlashOdinAsync(new List<FlashRow> { row });
+        }
+
+        private async void StartFlashing_Click(object s, RoutedEventArgs e)
+        {
+            if (!_deviceChecked) { AppendLog("Press Detect Device first."); return; }
+            if (!_deviceConnected) { AppendLog("Device not connected."); return; }
+
+            if (_mode == FlashMode.Fastboot)
+            {
+                var sel = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+                if (sel.Count == 0) { AppendLog("No files selected."); return; }
+                await FlashFastbootAsync(sel);
+            }
+            else if (_mode == FlashMode.Odin)
+            {
+                var sel = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+                if (sel.Count == 0) { AppendLog("No files selected."); return; }
+                await FlashOdinAsync(sel);
+            }
+            else if (_mode == FlashMode.Sideload)
+            {
+                await StartSideloadInternal();
+            }
+        }
+
+        private async Task FlashFastbootAsync(List<FlashRow> rows)
+        {
+            if (!_deviceChecked) { AppendLog("Detect device first."); return; }
+            if (!_deviceConnected) { AppendLog("Device not connected."); return; }
 
             int total = rows.Count;
             int i = 0;
-
             foreach (var row in rows)
             {
                 i++;
-                string imgPath = row.FilePath;
-                
-                // If it's a tar/md5, we still use the helper to get the .img inside
-                if (imgPath.EndsWith(".tar", StringComparison.OrdinalIgnoreCase) || imgPath.EndsWith(".md5", StringComparison.OrdinalIgnoreCase))
-                {
-                    AppendLog($"[{row.Label}] Extracting .img from {Path.GetFileName(imgPath)} ...");
-                    var ex = await ExtractImgAsync(imgPath);
-                    if (ex == null) { AppendLog($"[{row.Label}] FAILED — could not extract .img."); return; }
-                    AppendLog($"[{row.Label}] Extracted: {Path.GetFileName(ex)}");
-                    imgPath = ex;
-                }
-
-                var sb = new StringBuilder();
-                sb.Append($"-flash {row.Key.ToUpper()} \"{imgPath}\"");
-                if (!string.IsNullOrWhiteSpace(_pitFilePath)) sb.Append($" -pit \"{_pitFilePath}\"");
-                if (OptRePartition?.IsChecked == true && !string.IsNullOrWhiteSpace(_pitFilePath)) sb.Append(" -repartition");
-                if (OptNandErase?.IsChecked == true) sb.Append(" -erase");
-                if (OptAutoReboot?.IsChecked == true) sb.Append(" -reboot");
-
-                string args = sb.ToString();
-                AppendLog($"> ekoflash {args}");
-                AppendLog($"[{row.Label}] 1/3 Initializing Engine ({i}/{total})");
-                AppendLog($"[{row.Label}] 2/3 Flashing via EKO ENGINE...");
-                
-                // Using ekoflash.exe as the backend engine
-                var r = await RunProcessAsync("ekoflash.exe", args, 30 * 60 * 1000);
+                string args = $"flash {row.Key.ToLower()} \"{row.FilePath}\"";
+                AppendLog($"> fastboot {args}");
+                AppendLog($"[{row.Label}] 1/3 Prepare ({i}/{total})");
+                AppendLog($"[{row.Label}] 2/3 Flashing...");
+                var r = await RunAsync("platform-tools", "fastboot", args, 30 * 60 * 1000);
 
                 if (r.Code != 0)
                 {
@@ -434,350 +669,23 @@ namespace MKVenomTool
                 AppendLog($"[{row.Label}] 3/3 Flash completed");
             }
 
-            AppendLog("Odin flashing complete via EKO ENGINE.");
-        }
-
-        // Sideload
-        private async void StartSideload_Click(object s, RoutedEventArgs e) => await StartSideloadInternal();
-
-        private async Task StartSideloadInternal()
-        {
-            string path = SideloadPathBox.Text.Trim();
-            if (string.IsNullOrEmpty(path)) { AppendLog("Select an OTA ZIP first."); return; }
-            AppendLog($"> adb sideload \"{path}\"");
-            var r = await RunAsync("platform-tools", "adb", $"sideload \"{path}\"", 30 * 60 * 1000);
-            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
-            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
-            AppendLog(r.Code == 0 ? "Sideload complete ✓" : "Sideload FAILED.");
-        }
-
-        // Extract tar/md5
-        private async Task<string?> ExtractImgAsync(string tarPath)
-        {
-            return await Task.Run(() =>
-            {
-                try
-                {
-                    string outDir = Path.Combine(Path.GetTempPath(), "EKO_FLASH_PRO_extract");
-                    Directory.CreateDirectory(outDir);
-
-                    using var fs = File.OpenRead(tarPath);
-                    using var tar = TarArchive.CreateInputTarArchive(fs, Encoding.UTF8);
-                    tar.ExtractContents(outDir);
-
-                    var imgs = Directory.GetFiles(outDir, "*.img", SearchOption.AllDirectories);
-                    if (imgs.Length > 0) return imgs[0];
-
-                    var any = Directory.GetFiles(outDir, "*", SearchOption.AllDirectories)
-                                       .Where(f => !f.EndsWith(".md5", StringComparison.OrdinalIgnoreCase))
-                                       .FirstOrDefault();
-                    return any;
-                }
-                catch (Exception ex)
-                {
-                    Dispatcher.Invoke(() => AppendLog($"  Extract error: {ex.Message}"));
-                    return null;
-                }
-            });
-        }
-
-        // Quick commands
-        private async void QuickCmd_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Button b || b.Tag is not string cmd) return;
-            AppendLog($"> {cmd}");
-            var parts = cmd.Split(' ', 2);
-            var r = await RunAsync("platform-tools", parts[0], parts.Length > 1 ? parts[1] : "", 30000);
-            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
-            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
-        }
-
-        // Custom commands
-        private async void RunCustomAdb_Click(object s, RoutedEventArgs e)
-        {
-            string args = CustomAdbBox.Text.Trim();
-            if (string.IsNullOrEmpty(args)) { AppendLog("Enter adb args."); return; }
-            AppendLog($"> adb {args}");
-            var r = await RunAsync("platform-tools", "adb", args, 60000);
-            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
-            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
-        }
-
-        private async void RunCustomFastboot_Click(object s, RoutedEventArgs e)
-        {
-            string args = CustomFastbootBox.Text.Trim();
-            if (string.IsNullOrEmpty(args)) { AppendLog("Enter fastboot args."); return; }
-            AppendLog($"> fastboot {args}");
-            var r = await RunAsync("platform-tools", "fastboot", args, 60000);
-            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
-            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
-        }
-
-        private async void InstallApk_Click(object s, RoutedEventArgs e)
-        {
-            string p = ApkPathBox.Text.Trim();
-            if (string.IsNullOrEmpty(p)) { AppendLog("Select APK first."); return; }
-            AppendLog($"> adb install \"{p}\"");
-            var r = await RunAsync("platform-tools", "adb", $"install \"{p}\"", 120000);
-            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.TrimEnd());
-            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.TrimEnd());
-            AppendLog(r.Code == 0 ? "APK installed ✓" : "APK install FAILED.");
-        }
-
-        // Zadig
-        private void LaunchZadig_Click(object s, RoutedEventArgs e) => LaunchZadigInternal();
-
-        private void LaunchZadigInternal()
-        {
-            string exe = ToolsManager.GetExePath("zadig", "zadig");
-            if (!File.Exists(exe)) { AppendLog("zadig.exe not found in tools-embed/zadig/."); return; }
-            AppendLog($"Launching Zadig: {exe}");
-            try { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true }); }
-            catch (Exception ex) { AppendLog($"Launch failed: {ex.Message}"); }
-        }
-
-        // Wipe / Reboot / Reset
-        private async void WipeData_Click(object s, RoutedEventArgs e)
-        {
-            if (_mode != FlashMode.Fastboot) { AppendLog("Wipe: Fastboot mode only."); return; }
-            var r = await RunAsync("platform-tools", "fastboot", "-w", 600000);
-            AppendLog(r.Code == 0 ? "Wipe done." : $"Wipe FAILED (exit {r.Code}). {r.Err.Trim()}");
-        }
-
-        private async void RebootSystem_Click(object s, RoutedEventArgs e)
-        {
-            if (_mode == FlashMode.Fastboot || _mode == FlashMode.Tools)
+            AppendLog("Fastboot flashing complete.");
+            if (AutoRebootCheck.IsChecked == true)
             {
                 await RunAsync("platform-tools", "fastboot", "reboot", 15000);
-                AppendLog("Reboot: fastboot reboot");
-            }
-            else if (_mode == FlashMode.Sideload || _mode == FlashMode.BackupRestore)
-            {
-                await RunAsync("platform-tools", "adb", "reboot", 15000);
-                AppendLog("Reboot: adb reboot");
-            }
-            else if (_mode == FlashMode.Odin)
-            {
-                await RunProcessAsync("ekoflash.exe", "-reboot", 15000);
-                AppendLog("Reboot: ekoflash reboot");
+                AppendLog("Rebooted.");
             }
         }
 
-        private void ResetAll_Click(object s, RoutedEventArgs e)
+        private async Task FlashOdinAsync(List<FlashRow> rows)
         {
-            foreach (var r in _fbRows) r.FilePath = "";
-            foreach (var r in _odinRows) r.FilePath = "";
-            _pitFilePath = "";
-            PitPathBox.Text = "";
-            if (SideloadPathBox != null) SideloadPathBox.Text = "";
-            if (ApkPathBox != null) ApkPathBox.Text = "";
-            if (CustomAdbBox != null) CustomAdbBox.Text = "";
-            if (CustomFastbootBox != null) CustomFastbootBox.Text = "";
-            CommandPreviewBox.Clear();
-            AppendLog("All cleared.");
-        }
+            if (!_deviceChecked) { AppendLog("Detect device first."); return; }
+            if (!_deviceConnected) { AppendLog("Device not connected."); return; }
 
-        // Preview
-        private void UpdateCommandPreview()
-        {
-            var lines = new List<string>();
-            if (_mode == FlashMode.Fastboot)
-                lines.AddRange(_fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).Select(r => $"fastboot flash {r.Key.ToLower()} \"{r.FilePath}\""));
-            else if (_mode == FlashMode.Odin)
+            if (_odinBackend == OdinBackend.OdinDriverOnly)
             {
-                if (!string.IsNullOrWhiteSpace(_pitFilePath)) lines.Add($"# PIT: {_pitFilePath}");
-                lines.AddRange(_odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).Select(r => $"ekoflash -flash {r.Key.ToUpper()} \"{r.FilePath}\""));
-            }
-            else if (_mode == FlashMode.Sideload && SideloadPathBox != null && !string.IsNullOrWhiteSpace(SideloadPathBox.Text))
-                lines.Add($"adb sideload \"{SideloadPathBox.Text}\"");
-            else if (_mode == FlashMode.BackupRestore)
-                lines.Add("Backup/Restore mode uses adb shell su -c + tar + pull/push");
-
-            CommandPreviewBox.Text = lines.Count == 0 ? "No command queued." : string.Join(Environment.NewLine, lines);
-        }
-
-        // Log
-        private void AppendLog(string msg)
-        {
-            if (!_uiReady || LogBox == null) return;
-            LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}{Environment.NewLine}");
-            LogBox.ScrollToEnd();
-        }
-
-        // Process helpers
-        private Task<(int Code, string Out, string Err)> RunAsync(string folder, string exe, string args, int ms)
-            => RunProcessAsync(ToolsManager.GetExePath(folder, exe), args, ms);
-
-        private async Task<(int Code, string Out, string Err)> RunProcessAsync(string fileName, string args, int ms)
-        {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = fileName,
-                    Arguments = args,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using var p = new Process { StartInfo = psi };
-                var o = new StringBuilder();
-                var er = new StringBuilder();
-
-                p.OutputDataReceived += (_, e) => { if (e.Data != null) o.AppendLine(e.Data); };
-                p.ErrorDataReceived += (_, e) => { if (e.Data != null) er.AppendLine(e.Data); };
-
-                p.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
-
-                using var cts = new CancellationTokenSource(ms);
-                try { await p.WaitForExitAsync(cts.Token); }
-                catch (OperationCanceledException) { try { p.Kill(true); } catch { } return (-1, o.ToString(), $"Timeout {ms / 1000}s"); }
-
-                return (p.ExitCode, o.ToString(), er.ToString());
-            }
-            catch (Exception ex) { return (-1, "", ex.Message); }
-        }
-
-        // Backup / Restore
-        private async void LoadApps_Click(object sender, RoutedEventArgs e)
-        {
-            _backupApps.Clear();
-            AppendLog("Loading apps list (root) ...");
-
-            bool rootOk = await BackupService.CheckRootAsync(AppendLog);
-            if (!rootOk) { AppendLog("Root check failed."); return; }
-
-            var apps = await BackupService.GetInstalledAppsAsync(AppendLog);
-            foreach (var a in apps)
-            {
-                var letter = string.IsNullOrWhiteSpace(a.DisplayName) ? "?" : a.DisplayName.Substring(0, 1).ToUpperInvariant();
-                _backupApps.Add(new BackupAppRow
-                {
-                    PackageName = a.PackageName,
-                    DisplayName = a.DisplayName,
-                    IconLetter = letter
-                });
-            }
-
-            AppendLog($"Apps loaded: {_backupApps.Count}");
-        }
-
-        private async void StartBackup_Click(object sender, RoutedEventArgs e)
-        {
-            var selected = _backupApps.Where(a => a.IsSelected).ToList();
-            if (selected.Count == 0) { AppendLog("Select at least one app."); return; }
-
-            var options = new BackupOptions
-            {
-                BackupApk = GetBkApkOpt()?.IsChecked == true,
-                BackupData = GetBkDataOpt()?.IsChecked == true,
-                BackupUserDe = GetBkUserDeOpt()?.IsChecked == true,
-                BackupObb = GetBkObbOpt()?.IsChecked == true
-            };
-
-            if (!options.BackupApk && !options.BackupData && !options.BackupUserDe && !options.BackupObb)
-            {
-                AppendLog("Select at least one backup option.");
-                return;
-            }
-
-            bool rootOk = await BackupService.CheckRootAsync(AppendLog);
-            if (!rootOk) { AppendLog("Root check failed."); return; }
-
-            int total = selected.Count;
-            int idx = 0;
-            foreach (var app in selected)
-            {
-                idx++;
-                AppendLog($"[{idx}/{total}] Backup start: {app.PackageName}");
-                var ok = await BackupService.BackupAppAsync(app.PackageName, app.DisplayName, options, AppendLog);
-                AppendLog(ok ? $"Backup done: {app.PackageName}" : $"Backup failed: {app.PackageName}");
-            }
-
-            AppendLog("Backup batch finished.");
-            await RefreshBackupsInternal();
-        }
-
-        private async void RefreshBackups_Click(object sender, RoutedEventArgs e) => await RefreshBackupsInternal();
-
-        private async Task RefreshBackupsInternal()
-        {
-            _backupSets.Clear();
-            var list = await BackupService.GetBackupsAsync(AppendLog);
-            foreach (var b in list)
-            {
-                var letter = string.IsNullOrWhiteSpace(b.DisplayName) ? "?" : b.DisplayName.Substring(0, 1).ToUpperInvariant();
-                _backupSets.Add(new BackupSetRow
-                {
-                    BackupPath = b.BackupPath,
-                    PackageName = b.PackageName,
-                    DisplayName = b.DisplayName,
-                    BackupDateText = b.BackupDate.ToString("yyyy-MM-dd HH:mm:ss"),
-                    IconLetter = letter
-                });
-            }
-            AppendLog($"Backups found: {_backupSets.Count}");
-        }
-
-        private async void RestoreSelected_Click(object sender, RoutedEventArgs e)
-        {
-            var list = GetBackupSetsList();
-            if (list?.SelectedItem is not BackupSetRow sel)
-            {
-                AppendLog("Select one backup to restore.");
-                return;
-            }
-
-            bool rootOk = await BackupService.CheckRootAsync(AppendLog);
-            if (!rootOk) { AppendLog("Root check failed."); return; }
-
-            AppendLog($"Restore start: {sel.PackageName}");
-            var ok = await BackupService.RestoreBackupAsync(sel.BackupPath, AppendLog);
-            AppendLog(ok ? "Restore completed." : "Restore failed.");
-        }
-    }
-
-    public class FlashRow : INotifyPropertyChanged
-    {
-        private string _fp = "";
-        public string Key { get; set; } = "";
-        public string Label { get; set; } = "";
-        public string FilePath { get => _fp; set { if (_fp == value) return; _fp = value; OnPropertyChanged(); } }
-        public event PropertyChangedEventHandler? PropertyChanged;
-        private void OnPropertyChanged([CallerMemberName] string? p = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
-    }
-
-    public class BackupAppRow : INotifyPropertyChanged
-    {
-        private bool _isSelected;
-        public string PackageName { get; set; } = "";
-        public string DisplayName { get; set; } = "";
-        public string IconLetter { get; set; } = "?";
-
-        public bool IsSelected
-        {
-            get => _isSelected;
-            set
-            {
-                if (_isSelected == value) return;
-                _isSelected = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
-            }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-    }
-
-    public class BackupSetRow
-    {
-        public string BackupPath { get; set; } = "";
-        public string PackageName { get; set; } = "";
-        public string DisplayName { get; set; } = "";
-        public string BackupDateText { get; set; } = "";
-        public string IconLetter { get; set; } = "?";
-    }
-}
+                AppendLog("══════════════════════════════════════════");
+                AppendLog("  libusb error -5 — WinUSB driver needed");
+                AppendLog("══════════════════════════════════════════");
+                AppendLog("  1. Go to ADB/TOOLS tab → Launch Zadig");
+                AppendLog(
