@@ -1,4 +1,4 @@
-name: Build TURBO_FLASH_TOOL
+name: Build EKOFLASH PRO v3.0
 
 on:
   push:
@@ -10,66 +10,160 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
 
     steps:
-      - name: Checkout Code
+      - name: Check Out Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup MSVC
+      - name: Set up MSVC & vcpkg
         uses: microsoft/setup-msbuild@v2
 
-      - name: Setup CMake
-        uses: lukka/get-cmake@latest
+      - name: Setup Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
 
-      # حل مشكلة Python + Qt
-      - name: Setup Python for Qt
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Qt 6.7
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.7.*'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2019_64'
-          modules: 'qtbase qttools qt5compat'
-          cache: true
-          setup-python: false
-          dir: '${{ github.workspace }}/Qt'
-
-      - name: Build with CMake
+      - name: Install C++ Dependencies (fmt & spdlog)
         shell: pwsh
         run: |
-          \( QtDir = " \){{ github.workspace }}/Qt/6.7*/msvc2019_64"
+          cd $env:VCPKG_INSTALLATION_ROOT
+          .\vcpkg install fmt spdlog --triplet x64-windows-static
+          .\vcpkg integrate install
+
+      - name: Download External Tools
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "external_tools" -Force
           
-          cmake -B build -S . `
-            -DCMAKE_BUILD_TYPE=Release `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            -DCMAKE_PREFIX_PATH="$QtDir" `
-            -DQt6_DIR="$QtDir/lib/cmake/Qt6"
+          Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile pt.zip
+          Expand-Archive pt.zip . -Force
+          Copy-Item "platform-tools\adb.exe", "platform-tools\fastboot.exe", "platform-tools\AdbWinApi.dll", "platform-tools\AdbWinUsbApi.dll" "external_tools\" -Force
+          
+          Invoke-WebRequest "https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.7z" -OutFile libusb.7z
+          7z x libusb.7z -olibusb_dir -y
+          $dll = Get-ChildItem libusb_dir -Recurse -Filter "libusb-1.0.dll" | Where-Object { $_.FullName -match "MS64|x64" } | Select-Object -First 1
+          Copy-Item $dll.FullName "external_tools\" -Force
+          
+          Invoke-WebRequest "https://github.com/pbatard/libwdi/releases/download/v1.5.1/zadig-2.9.exe" -OutFile "external_tools\zadig.exe"
 
-          cmake --build build --config Release --verbose -j 4
-
-      - name: Find Executable
+      - name: Prepare C++ Source Files
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Path "build" -Recurse -Filter "brokkr.exe" | Select-Object -First 1
-          if ($exe) {
-            Copy-Item $exe.FullName -Destination "TURBO_FLASH_TOOL.exe"
-            Write-Host "✅ Success: TURBO_FLASH_TOOL.exe created"
-          } else {
-            Write-Host "Searching for any executable..."
-            Get-ChildItem -Path "build" -Recurse -Filter "*.exe" | Select-Object FullName
-            throw "Executable not found!"
+          # إنشاء main.cpp إذا لم يكن موجود
+          if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
+          
+          @"
+          #include "cli_mode.hpp"
+          int main(int argc, char* argv[]) {
+              if (brokkr::app::should_run_cli(argc, argv)) {
+                  return brokkr::app::run_cli(argc, argv);
+              }
+              return 0;
+          }
+          "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
+
+          # إصلاح namespace cache
+          $file = "src\app\md5_xxh3_cache.cpp"
+          if (Test-Path $file) {
+            (Get-Content $file -Raw) -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n// NAMESPACE_FIX`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n" | 
+            Set-Content $file -Encoding UTF8
           }
 
-      - name: Upload Artifact
+      - name: Build C++ Engine (ekoflash.exe)
+        shell: pwsh
+        run: |
+          $VCPKG_PATH = $env:VCPKG_INSTALLATION_ROOT
+          $VCPKG_INC = "$VCPKG_PATH\installed\x64-windows-static\include"
+          $VCPKG_LIB = "$VCPKG_PATH\installed\x64-windows-static\lib"
+
+          # === مسارات src بالتفصيل (كما طلب أحمد) ===
+          $sources = Get-ChildItem `
+            -Path "src\protocol\odin\*.cpp",
+                  "src\core\*.cpp",
+                  "src\io\*.cpp",
+                  "src\platform\windows\*.cpp",
+                  "src\app\*.cpp" |
+            Select-Object -ExpandProperty FullName
+
+          $sources += @(
+            "src\third_party\lz4\lz4.c",
+            "src\third_party\md5\md5.c",
+            "src\third_party\xxhash\xxhash.c"
+          )
+
+          $includes = @(
+            "/I src",
+            "/I src\core",
+            "/I src\io",
+            "/I src\platform\windows",
+            "/I src\protocol\odin",
+            "/I src\app",
+            "/I src\third_party\lz4",
+            "/I src\third_party\md5",
+            "/I src\third_party\xxhash",
+            "/I `"$VCPKG_INC`""
+          ) -join " "
+
+          $defines = @(
+            "/D BROKKR_PLATFORM_WINDOWS",
+            "/D WIN32",
+            "/D _WINDOWS",
+            "/D WIN32_LEAN_AND_MEAN",
+            "/D NOMINMAX",
+            "/D _WIN32_WINNT=0x0A00",
+            "/D SPDLOG_FMT_EXTERNAL",
+            "/D FMT_HEADER_ONLY=0",
+            "/D _CRT_SECURE_NO_WARNINGS"
+          ) -join " "
+
+          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
+
+          $linkLibs = @(
+            "Ws2_32.lib",
+            "SetupAPI.lib",
+            "User32.lib",
+            "Advapi32.lib",
+            "`"$VCPKG_LIB\fmt.lib`"",
+            "`"$VCPKG_LIB\spdlog.lib`""
+          ) -join " "
+
+          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs"
+          
+          Write-Host "Building ekoflash.exe..."
+          Write-Host $cmd
+          Invoke-Expression $cmd
+          
+          if (!(Test-Path "ekoflash.exe")) {
+              throw "❌ Failed to build ekoflash.exe"
+          }
+          Write-Host "✅ ekoflash.exe built successfully"
+
+      - name: Build & Publish GUI (.NET 8 WPF)
+        shell: pwsh
+        run: |
+          dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o ./publish
+
+      - name: Final Packaging
+        shell: pwsh
+        run: |
+          Copy-Item "ekoflash.exe" "./publish/" -Force
+          Copy-Item "external_tools\*" "./publish/" -Force
+          
+          if (Test-Path "icon.ico") { Copy-Item "icon.ico" "./publish/" -Force }
+
+          # التسمية النهائية
+          if (Test-Path "./publish/EkoFlashTool.exe") {
+            Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
+          }
+
+      - name: Upload Final Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: TURBO_FLASH_TOOL
-          path: TURBO_FLASH_TOOL.exe
+          name: EKOFLASH_PRO_v3.0_FULL
+          path: ./publish/
