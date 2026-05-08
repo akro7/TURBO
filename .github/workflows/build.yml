@@ -10,9 +10,16 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
+      VCPKG_ROOT: C:\vcpkg # المسار الافتراضي في صور GitHub Actions
+
     steps:
       - name: Check Out Repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive # لضمان جلب أي مكتبات فرعية إن وجدت
 
       - name: Set up MSVC
         uses: microsoft/setup-msbuild@v2
@@ -20,171 +27,81 @@ jobs:
       - name: Setup Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install fmt + spdlog via vcpkg (Static)
+      - name: Install dependencies via vcpkg
         shell: pwsh
         run: |
-          vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
+          # تثبيت المكتبات المطلوبة بشكل static لضمان عمل الملف التنفيذي في أي مكان
+          vcpkg install fmt spdlog --triplet x64-windows-static
           vcpkg integrate install
 
       - name: Fix md5_xxh3_cache - Resolve Status namespace conflict
         shell: pwsh
         run: |
           $file = "src\app\md5_xxh3_cache.cpp"
-          if (!(Test-Path $file)) { Write-Error "MISSING: $file"; exit 1 }
-          $content = Get-Content $file -Raw
-          if ($content -notmatch "NAMESPACE_FIX_APPLIED") {
-            $fix = "// NAMESPACE_FIX_APPLIED`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n`n"
-            $fixed = $content -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n$fix"
-            $fixed | Set-Content $file -Encoding UTF8
-            Write-Host "Patched: $file" -ForegroundColor Green
+          if (Test-Path $file) {
+            $content = Get-Content $file -Raw
+            if ($content -notmatch "NAMESPACE_FIX_APPLIED") {
+              $fix = "// NAMESPACE_FIX_APPLIED`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n`n"
+              $fixed = $content -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n$fix"
+              $fixed | Set-Content $file -Encoding UTF8
+              Write-Host "Patched: $file" -ForegroundColor Green
+            }
           }
 
-      - name: Generate xxhash.c (header-only implementation)
+      - name: Generate xxhash.c
         shell: pwsh
         run: |
           $dir = "src\third_party\xxhash"
           if (!(Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir }
-          if (Test-Path "$dir\xxhash_vendor.h") { $h = "xxhash_vendor.h" }
-          elseif (Test-Path "$dir\xxhash.h")    { $h = "xxhash.h" }
-          else { Write-Error "No xxhash header found"; exit 1 }
-          "#define XXH_STATIC_LINKING_ONLY`n#define XXH_IMPLEMENTATION`n#include `"$h`"" |
-            Set-Content "$dir\xxhash.c" -Encoding UTF8
-          Write-Host "Generated xxhash.c using $h" -ForegroundColor Green
+          $h = if (Test-Path "$dir\xxhash_vendor.h") { "xxhash_vendor.h" } else { "xxhash.h" }
+          "#define XXH_STATIC_LINKING_ONLY`n#define XXH_IMPLEMENTATION`n#include `"$h`"" | Set-Content "$dir\xxhash.c" -Encoding UTF8
 
-      - name: Generate main.cpp entry point
+      - name: Build C++ Engine (ekoflash.exe)
         shell: pwsh
         run: |
-          if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
-          @"
-#include "cli_mode.hpp"
-int main(int argc, char* argv[]) {
-    if (brokkr::app::should_run_cli(argc, argv)) {
-        return brokkr::app::run_cli(argc, argv);
-    }
-    return 0;
-}
-"@ | Set-Content "src\app\main.cpp" -Encoding UTF8
-          Write-Host "main.cpp generated OK"
+          # استخدام المسارات الديناميكية لـ vcpkg لضمان الدقة
+          $VCPKG_INC = "${env:VCPKG_ROOT}\installed\x64-windows-static\include"
+          $VCPKG_LIB = "${env:VCPKG_ROOT}\installed\x64-windows-static\lib"
 
-      - name: Build ekoflash.exe (C++ Engine - Static MSVC)
-        shell: pwsh
-        run: |
-          $VCPKG_INC = "C:\vcpkg\installed\x64-windows-static\include"
-          $VCPKG_LIB = "C:\vcpkg\installed\x64-windows-static\lib"
+          $sources = Get-ChildItem -Path "src\protocol\odin\*.cpp", "src\core\*.cpp", "src\io\*.cpp", "src\platform\windows\*.cpp", "src\app\*.cpp" | Select-Object -ExpandProperty FullName
+          # إضافة ملفات C التابعة لمكتبات الطرف الثالث
+          $sources += "src\third_party\lz4\lz4.c", "src\third_party\md5\md5.c", "src\third_party\xxhash\xxhash.c"
 
-          $sources = @(
-            "src\protocol\odin\flash.cpp",
-            "src\protocol\odin\group_flasher.cpp",
-            "src\protocol\odin\odin_cmd.cpp",
-            "src\protocol\odin\pit.cpp",
-            "src\protocol\odin\pit_transfer.cpp",
-            "src\core\thread_pool.cpp",
-            "src\io\lz4_frame.cpp",
-            "src\io\source.cpp",
-            "src\io\tar.cpp",
-            "src\platform\windows\app_dirs.cpp",
-            "src\platform\windows\signal_shield.cpp",
-            "src\platform\windows\single_instance.cpp",
-            "src\platform\windows\sysfs_usb.cpp",
-            "src\platform\windows\tcp_transport.cpp",
-            "src\platform\windows\usbfs_conn.cpp",
-            "src\platform\windows\usbfs_device.cpp",
-            "src\app\cli_mode.cpp",
-            "src\app\md5_verify.cpp",
-            "src\app\md5_xxh3_cache.cpp",
-            "src\app\main.cpp",
-            "src\third_party\lz4\lz4.c",
-            "src\third_party\md5\md5.c",
-            "src\third_party\xxhash\xxhash.c"
-          )
-
-          $includes = @(
-            "/I src",
-            "/I src\core",
-            "/I src\io",
-            "/I src\platform\windows",
-            "/I src\platform\posix-common",
-            "/I src\protocol\odin",
-            "/I src\app",
-            "/I src\third_party\lz4",
-            "/I src\third_party\md5",
-            "/I src\third_party\xxhash",
-            "/I `"$VCPKG_INC`""
-          )
-
-          $defines = @(
-            "/D BROKKR_PLATFORM_WINDOWS",
-            "/D WIN32_LEAN_AND_MEAN",
-            "/D NOMINMAX",
-            "/D _WIN32_WINNT=0x0A00",
-            "/D SPDLOG_FMT_EXTERNAL",
-            "/D XXH_STATIC_LINKING_ONLY",
-            "/D XXH_IMPLEMENTATION",
-            "/D FMT_HEADER_ONLY=0"
-          )
-
+          $includes = "/I src /I src\core /I src\io /I src\platform\windows /I src\protocol\odin /I src\app /I src\third_party\lz4 /I src\third_party\md5 /I src\third_party\xxhash /I `"$VCPKG_INC`""
+          
+          $defines = "/D BROKKR_PLATFORM_WINDOWS /D WIN32_LEAN_AND_MEAN /D NOMINMAX /D _WIN32_WINNT=0x0A00 /D SPDLOG_FMT_EXTERNAL /D FMT_HEADER_ONLY=0"
+          
           $flags = "/std:c++latest /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /permissive- /wd4005 /wd4996"
-          $srcList  = $sources  -join " "
-          $inclList = $includes -join " "
-          $defList  = $defines  -join " "
-          $libPath  = "/LIBPATH:`"$VCPKG_LIB`""
-          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib fmt.lib"
+          $linkLibs = "Ws2_32.lib SetupAPI.lib User32.lib Advapi32.lib `"$VCPKG_LIB\fmt.lib`" `"$VCPKG_LIB\spdlog.lib`""
 
-          $cmd = "cl.exe $flags $inclList $defList $srcList /Fe:ekoflash.exe /link $libPath $linkLibs"
-          Write-Host "=== CMD ===" -ForegroundColor Cyan
-          Write-Host $cmd
+          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs"
+          Write-Host "Executing Build..." -ForegroundColor Cyan
           Invoke-Expression $cmd
+          
+          if (!(Test-Path "ekoflash.exe")) { throw "Build failed: ekoflash.exe not generated" }
 
-          if (-not (Test-Path "ekoflash.exe")) {
-            Write-Error "ekoflash.exe not found after build!"
-            exit 1
-          }
-          Write-Host "C++ Engine built OK" -ForegroundColor Green
-
-      # ── C# / WPF GUI ──────────────────────────────────────────────────────
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore NuGet packages
-        shell: pwsh
-        run: dotnet restore EkoFlashTool.csproj
-
-      - name: Publish EKOFLASH GUI (self-contained WPF)
+      - name: Publish GUI and Bundle
         shell: pwsh
         run: |
-          dotnet publish EkoFlashTool.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
+          # بناء الـ WPF كـ Single File
+          dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
             -o ./publish
 
-      - name: Bundle ekoflash.exe inside publish folder
-        shell: pwsh
-        run: |
-          # ننسخ محرك C++ داخل مجلد النشر حتى يجده الـ GUI وقت التشغيل
-          Copy-Item "ekoflash.exe" "./publish/ekoflash.exe" -Force
-          Write-Host "ekoflash.exe copied to publish folder" -ForegroundColor Green
+          # دمج المحرك داخل مجلد النشر
+          Copy-Item "ekoflash.exe" "./publish/" -Force
+          
+          # تغيير الاسم النهائي
+          Rename-Item "./publish/EkoFlashTool.exe" "EKOFLASH_PRO_v3.0.exe"
 
-      - name: Rename final EXE
-        shell: pwsh
-        run: |
-          $src = "./publish/EkoFlashTool.exe"
-          $dst = "./publish/EKOFLASH_PRO_v3.0.exe"
-          if (Test-Path $src) {
-            Move-Item $src $dst -Force
-            Write-Host "Renamed to EKOFLASH_PRO_v3.0.exe" -ForegroundColor Green
-          } else {
-            Write-Error "EkoFlashTool.exe not found in publish folder!"
-            exit 1
-          }
-
-      - name: Upload Final Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EKOFLASH_PRO_BUNDLE
-          path: ./publish/EKOFLASH_PRO_v3.0.exe
+          name: EKOFLASH_PRO_V3
+          path: ./publish/
