@@ -20,13 +20,12 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up MSVC & vcpkg
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Setup Developer Command Prompt
+      - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-      - name: Install C++ Dependencies (fmt & spdlog)
+      - name: Install C++ Dependencies (vcpkg)
         shell: pwsh
         run: |
           cd $env:VCPKG_INSTALLATION_ROOT
@@ -40,7 +39,7 @@ jobs:
           
           Invoke-WebRequest "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile pt.zip
           Expand-Archive pt.zip . -Force
-          Copy-Item "platform-tools\adb.exe", "platform-tools\fastboot.exe", "platform-tools\AdbWinApi.dll", "platform-tools\AdbWinUsbApi.dll" "external_tools\" -Force
+          Copy-Item "platform-tools\*" "external_tools\" -Force
           
           Invoke-WebRequest "https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.7z" -OutFile libusb.7z
           7z x libusb.7z -olibusb_dir -y
@@ -52,7 +51,6 @@ jobs:
       - name: Prepare C++ Source Files
         shell: pwsh
         run: |
-          # إنشاء main.cpp إذا لم يكن موجود
           if (!(Test-Path "src\app")) { New-Item -ItemType Directory -Force -Path "src\app" }
           
           @"
@@ -65,13 +63,6 @@ jobs:
           }
           "@ | Set-Content "src\app\main.cpp" -Encoding UTF8
 
-          # إصلاح namespace cache
-          $file = "src\app\md5_xxh3_cache.cpp"
-          if (Test-Path $file) {
-            (Get-Content $file -Raw) -replace '((?:#include[^\n]*\n)+)(?!#include)', "`$1`n// NAMESPACE_FIX`nnamespace brokkr { namespace core {`n    using Status = ::brokkr::app::Status;`n    template<typename T> using Result = ::brokkr::app::Result<T>;`n} }`n" | 
-            Set-Content $file -Encoding UTF8
-          }
-
       - name: Build C++ Engine (ekoflash.exe)
         shell: pwsh
         run: |
@@ -79,13 +70,13 @@ jobs:
           $VCPKG_INC = "$VCPKG_PATH\installed\x64-windows-static\include"
           $VCPKG_LIB = "$VCPKG_PATH\installed\x64-windows-static\lib"
 
-          # === مسارات src بالتفصيل (كما طلب أحمد) ===
           $sources = Get-ChildItem `
-            -Path "src\protocol\odin\*.cpp",
-                  "src\core\*.cpp",
-                  "src\io\*.cpp",
-                  "src\platform\windows\*.cpp",
-                  "src\app\*.cpp" |
+            -Path `
+              "src\protocol\odin\*.cpp",
+              "src\core\*.cpp",
+              "src\io\*.cpp",
+              "src\platform\windows\*.cpp",
+              "src\app\*.cpp" |
             Select-Object -ExpandProperty FullName
 
           $sources += @(
@@ -119,7 +110,7 @@ jobs:
             "/D _CRT_SECURE_NO_WARNINGS"
           ) -join " "
 
-          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996"
+          $flags = "/std:c++20 /O2 /MT /EHsc /utf-8 /Zc:__cplusplus /wd4005 /wd4996 /wd4267"
 
           $linkLibs = @(
             "Ws2_32.lib",
@@ -130,34 +121,31 @@ jobs:
             "`"$VCPKG_LIB\spdlog.lib`""
           ) -join " "
 
-          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs"
+          $cmd = "cl.exe $flags $defines $includes $sources /Fe:ekoflash.exe /link $linkLibs /MACHINE:X64"
           
-          Write-Host "Building ekoflash.exe..."
+          Write-Host "=== Build Command ==="
           Write-Host $cmd
+          Write-Host "====================="
+          
           Invoke-Expression $cmd
           
           if (!(Test-Path "ekoflash.exe")) {
-              throw "❌ Failed to build ekoflash.exe"
+              Write-Host "❌ Build failed. Listing source files:"
+              Get-ChildItem src -Recurse -Filter "*.cpp" | Select-Object -First 20
+              throw "Failed to build ekoflash.exe"
           }
-          Write-Host "✅ ekoflash.exe built successfully"
+          Write-Host "✅ ekoflash.exe built successfully!"
 
-      - name: Build & Publish GUI (.NET 8 WPF)
+      - name: Build GUI (.NET)
         shell: pwsh
         run: |
-          dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -o ./publish
+          dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
 
       - name: Final Packaging
         shell: pwsh
         run: |
           Copy-Item "ekoflash.exe" "./publish/" -Force
           Copy-Item "external_tools\*" "./publish/" -Force
-          
-          if (Test-Path "icon.ico") { Copy-Item "icon.ico" "./publish/" -Force }
-
-          # التسمية النهائية
           if (Test-Path "./publish/EkoFlashTool.exe") {
             Move-Item "./publish/EkoFlashTool.exe" "./publish/EKOFLASH_PRO_v3.0.exe" -Force
           }
