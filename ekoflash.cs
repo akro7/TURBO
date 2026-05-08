@@ -43,14 +43,17 @@ namespace MKVenomTool
             if (FindName("BackupSetsList") is ListView setsList) setsList.ItemsSource = _backupSets;
 
             ApplyTheme("Blue");
-            SwitchMode(FlashMode.Odin);
+            SwitchMode(FlashMode.Fastboot);
             ShowTab("cmd");
 
-            AppendLog("UI initialized.");
-            AppendLog($"Odin engine path: {ToolsManager.EkoFlashExe}");
+            AppendLog("MK Venom Tool ready.");
+            AppendLog($"platform-tools (adb)     : {(File.Exists(ToolsManager.AdbExe) ? "ready" : "missing")}");
+            AppendLog($"platform-tools (fastboot): {(File.Exists(ToolsManager.FastbootExe) ? "ready" : "missing")}");
+            AppendLog($"odin engine (ekoflash)   : {(File.Exists(ToolsManager.EkoFlashExe) ? "ready" : "missing")}");
+            AppendLog($"zadig                    : {(File.Exists(ToolsManager.ZadigExe) ? "ready" : "missing")}");
+            UpdateCommandPreview();
         }
 
-        // Theme
         private void Swatch_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button b && b.Tag is string theme)
@@ -68,14 +71,11 @@ namespace MKVenomTool
                 ["Gold"] = (Color.FromRgb(0xFF, 0xB8, 0x30), Color.FromRgb(0x7A, 0x56, 0x1A))
             };
 
-            if (colors.TryGetValue(theme, out var c))
-            {
-                Resources["AccentBrush"] = new SolidColorBrush(c.ac);
-                Resources["AccentSoftBrush"] = new SolidColorBrush(c.acSoft);
-            }
+            if (!colors.TryGetValue(theme, out var c)) return;
+            Resources["Accent"] = new SolidColorBrush(c.ac);
+            Resources["Accent2"] = new SolidColorBrush(c.acSoft);
         }
 
-        // Tabs
         private void TabCmd_Click(object sender, RoutedEventArgs e) => ShowTab("cmd");
         private void TabOptions_Click(object sender, RoutedEventArgs e) => ShowTab("options");
 
@@ -86,7 +86,6 @@ namespace MKVenomTool
             TabOptionsPanel.Visibility = tab == "options" ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // Modes
         private void FastbootMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
         private void OdinMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
         private void SideloadMode_Click(object sender, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
@@ -106,13 +105,14 @@ namespace MKVenomTool
             if (FindName("PanelBackupRestore") is Grid backupPanel)
                 backupPanel.Visibility = mode == FlashMode.BackupRestore ? Visibility.Visible : Visibility.Collapsed;
 
+            AppendLog($"Mode -> {mode}");
             UpdateCommandPreview();
         }
 
         private void BuildFastbootRows()
         {
             _fbRows.Clear();
-            foreach (var p in new[] { "boot", "recovery", "system", "vendor", "vbmeta", "userdata" })
+            foreach (var p in new[] { "boot", "recovery", "system", "vendor", "product", "vbmeta", "vendor_boot", "userdata" })
                 _fbRows.Add(new FlashRow { Key = p, Label = p.ToUpperInvariant() });
         }
 
@@ -123,40 +123,36 @@ namespace MKVenomTool
                 _odinRows.Add(new FlashRow { Key = slot, Label = slot });
         }
 
-        // Browse actions
         private void FbBrowse_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string key) return;
             var dlg = new OpenFileDialog { Filter = "Image Files|*.img;*.bin|All Files|*.*" };
-            if (dlg.ShowDialog() == true)
-            {
-                var row = _fbRows.FirstOrDefault(r => r.Key == key);
-                if (row != null) row.FilePath = dlg.FileName;
-                UpdateCommandPreview();
-            }
+            if (dlg.ShowDialog() != true) return;
+
+            var row = _fbRows.FirstOrDefault(r => r.Key == key);
+            if (row != null) row.FilePath = dlg.FileName;
+            UpdateCommandPreview();
         }
 
         private void OdinBrowse_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button b || b.Tag is not string key) return;
             var dlg = new OpenFileDialog { Filter = "Odin Files|*.tar;*.md5;*.img;*.bin|All Files|*.*" };
-            if (dlg.ShowDialog() == true)
-            {
-                var row = _odinRows.FirstOrDefault(r => r.Key == key);
-                if (row != null) row.FilePath = dlg.FileName;
-                UpdateCommandPreview();
-            }
+            if (dlg.ShowDialog() != true) return;
+
+            var row = _odinRows.FirstOrDefault(r => r.Key == key);
+            if (row != null) row.FilePath = dlg.FileName;
+            UpdateCommandPreview();
         }
 
         private void BrowsePit_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Filter = "PIT Files|*.pit|All Files|*.*" };
-            if (dlg.ShowDialog() == true)
-            {
-                _pitFilePath = dlg.FileName;
-                PitPathBox.Text = _pitFilePath;
-                UpdateCommandPreview();
-            }
+            if (dlg.ShowDialog() != true) return;
+
+            _pitFilePath = dlg.FileName;
+            PitPathBox.Text = _pitFilePath;
+            UpdateCommandPreview();
         }
 
         private void ClearPit_Click(object sender, RoutedEventArgs e)
@@ -169,24 +165,23 @@ namespace MKVenomTool
         private void SideloadBrowse_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog { Filter = "ZIP Files|*.zip|All Files|*.*" };
-            if (dlg.ShowDialog() == true)
-            {
-                SideloadPathBox.Text = dlg.FileName;
-                UpdateCommandPreview();
-            }
+            if (dlg.ShowDialog() != true) return;
+
+            SideloadPathBox.Text = dlg.FileName;
+            UpdateCommandPreview();
         }
 
-        // Main operations
         private async void DetectDevice_Click(object sender, RoutedEventArgs e)
         {
-            DeviceStatusText.Text = "Device: Checking...";
+            DeviceStatusText.Text = "Checking...";
             var result = await RunProcessAsync(ToolsManager.AdbExe, "devices", 15000);
 
             var hasDevice = result.Out
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Any(l => l.EndsWith("\tdevice", StringComparison.OrdinalIgnoreCase));
 
-            DeviceStatusText.Text = hasDevice ? "Device: CONNECTED" : "Device: NOT FOUND";
+            DeviceStatusText.Text = hasDevice ? "Connected" : "Not found";
+
             AppendLog("adb devices");
             if (!string.IsNullOrWhiteSpace(result.Out)) AppendLog(result.Out.Trim());
             if (!string.IsNullOrWhiteSpace(result.Err)) AppendLog(result.Err.Trim());
@@ -200,21 +195,20 @@ namespace MKVenomTool
                     await StartOdinAsync();
                     break;
                 case FlashMode.Fastboot:
-                    AppendLog("Fastboot mode selected. Implement partitions execution as needed.");
+                    AppendLog("Fastboot operation requested.");
                     break;
                 case FlashMode.Sideload:
-                    AppendLog("Sideload mode selected.");
+                    AppendLog("Sideload operation requested.");
                     break;
                 case FlashMode.Tools:
-                    AppendLog("Tools mode selected.");
+                    AppendLog("Tools action requested.");
                     break;
                 case FlashMode.BackupRestore:
-                    AppendLog("Backup/Restore mode selected.");
+                    AppendLog("Backup/Restore action requested.");
                     break;
             }
         }
 
-        // Odin engine is ekoflash.exe (not Heimdall)
         private async Task StartOdinAsync()
         {
             var exe = ToolsManager.EkoFlashExe;
@@ -237,7 +231,9 @@ namespace MKVenomTool
             if (!string.IsNullOrWhiteSpace(result.Out)) AppendLog(result.Out.Trim());
             if (!string.IsNullOrWhiteSpace(result.Err)) AppendLog(result.Err.Trim());
 
-            AppendLog(result.Code == 0 ? "Odin operation completed successfully." : $"Odin operation failed with code: {result.Code}");
+            AppendLog(result.Code == 0
+                ? "Odin operation completed successfully."
+                : $"Odin operation failed with code: {result.Code}");
         }
 
         private string BuildOdinCommandArgs()
@@ -246,7 +242,6 @@ namespace MKVenomTool
 
             foreach (var row in _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)))
             {
-                // Map GUI slots to engine args.
                 switch (row.Key)
                 {
                     case "BL":
@@ -301,7 +296,6 @@ namespace MKVenomTool
             }
         }
 
-        // Quick command buttons
         private async void CmdRebootSys_Click(object sender, RoutedEventArgs e) => await RunAndLogAsync(ToolsManager.AdbExe, "reboot");
         private async void CmdRebootBl_Click(object sender, RoutedEventArgs e) => await RunAndLogAsync(ToolsManager.AdbExe, "reboot bootloader");
         private async void CmdRebootRec_Click(object sender, RoutedEventArgs e) => await RunAndLogAsync(ToolsManager.AdbExe, "reboot recovery");
@@ -330,7 +324,6 @@ namespace MKVenomTool
             }
         }
 
-        // Backup placeholders
         private async void LoadApps_Click(object sender, RoutedEventArgs e)
         {
             _backupApps.Clear();
@@ -351,8 +344,10 @@ namespace MKVenomTool
         {
             AppendLog($"Run: \"{fileName}\" {args}");
             var result = await RunProcessAsync(fileName, args, 120000);
+
             if (!string.IsNullOrWhiteSpace(result.Out)) AppendLog(result.Out.Trim());
             if (!string.IsNullOrWhiteSpace(result.Err)) AppendLog(result.Err.Trim());
+
             AppendLog($"Exit code: {result.Code}");
         }
 
