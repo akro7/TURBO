@@ -15,7 +15,6 @@ namespace MKVenomTool
 
         private static bool _extracted;
 
-        // ── Resource map ─────────────────────────────────────────────
         // Key   = Logical resource name (AssemblyName.Folder.FileName)
         // Value = Output file name on disk
         private static readonly Dictionary<string, string> _map = new()
@@ -29,13 +28,11 @@ namespace MKVenomTool
             ["EkoFlashTool.Resources.zadig.exe"]         = "zadig.exe"
         };
 
-        // ── Convenience path properties ───────────────────────────────
-        public static string EkoFlashExe  => GetToolPath("ekoflash.exe");
-        public static string AdbExe       => GetToolPath("adb.exe");
-        public static string FastbootExe  => GetToolPath("fastboot.exe");
-        public static string ZadigExe     => GetToolPath("zadig.exe");
+        public static string EkoFlashExe => GetToolPath("ekoflash.exe");
+        public static string AdbExe => GetToolPath("adb.exe");
+        public static string FastbootExe => GetToolPath("fastboot.exe");
+        public static string ZadigExe => GetToolPath("zadig.exe");
 
-        // ── Extract all embedded resources to ToolsRoot ───────────────
         public static void EnsureExtracted()
         {
             if (_extracted) return;
@@ -57,10 +54,9 @@ namespace MKVenomTool
 
                     string dest = Path.Combine(ToolsRoot, fileName);
 
-                    // ── Skip if file already extracted and identical ──
                     if (File.Exists(dest) && FileMd5(dest) == StreamMd5(stream))
                     {
-                        stream.Seek(0, SeekOrigin.Begin); // reset after MD5 read
+                        stream.Seek(0, SeekOrigin.Begin);
                         continue;
                     }
 
@@ -77,7 +73,6 @@ namespace MKVenomTool
             }
         }
 
-        // ── Force re-extraction (call after update) ───────────────────
         public static void Reset()
         {
             _extracted = false;
@@ -92,7 +87,6 @@ namespace MKVenomTool
             }
         }
 
-        // ── Verify all tools are present on disk ──────────────────────
         public static bool Verify(out List<string> missing)
         {
             missing = new List<string>();
@@ -102,23 +96,37 @@ namespace MKVenomTool
                 if (!File.Exists(path))
                     missing.Add(fileName);
             }
+
             return missing.Count == 0;
         }
 
-        // ── Get full path for a tool, fallback to filename ────────────
         public static string GetToolPath(string fileName)
         {
             string path = Path.Combine(ToolsRoot, fileName);
             return File.Exists(path) ? path : fileName;
         }
 
+        // Compatibility bridge: old code still calls GetExePath(folder, exe)
+        public static string GetExePath(string folder, string exe)
+        {
+            var n = (exe ?? string.Empty).Trim().ToLowerInvariant();
+
+            return n switch
+            {
+                "adb" or "adb.exe" => AdbExe,
+                "fastboot" or "fastboot.exe" => FastbootExe,
+                "ekoflash" or "ekoflash.exe" => EkoFlashExe,
+                "zadig" or "zadig.exe" => ZadigExe,
+                _ => GetToolPath(exe)
+            };
+        }
+
         public static bool IsReady() => _extracted && Verify(out _);
 
-        // ── MD5 helpers ───────────────────────────────────────────────
         private static string FileMd5(string path)
         {
             using var md5 = MD5.Create();
-            using var fs  = File.OpenRead(path);
+            using var fs = File.OpenRead(path);
             return BitConverter.ToString(md5.ComputeHash(fs));
         }
 
