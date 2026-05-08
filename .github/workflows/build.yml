@@ -93,14 +93,20 @@ jobs:
             "/D SPDLOG_FMT_EXTERNAL", "/D _CRT_SECURE_NO_WARNINGS"
           )
 
-          $flags   = @("/std:c++latest","/O2","/MT","/EHsc","/utf-8","/Zc:__cplusplus","/W3","/WX-","/permissive-")
-          $libs    = @("Ws2_32.lib","SetupAPI.lib","User32.lib","Advapi32.lib","Hid.lib","fmt.lib")
+          $flags = @("/std:c++latest","/O2","/MT","/EHsc","/utf-8","/Zc:__cplusplus","/W3","/WX-","/permissive-")
+          $libs  = @("Ws2_32.lib","SetupAPI.lib","User32.lib","Advapi32.lib","Hid.lib","fmt.lib")
 
-          $cmd = "cl.exe $($flags -join ' ') $($includes -join ' ') $($defines -join ' ') " +
-                 "$($sources | ForEach-Object { "`"$_`"" } | Join-String -Separator ' ') " +
-                 "/Fe:ekoflash.exe /link /LIBPATH:`"$VCPKG_LIB`" $($libs -join ' ')"
+          # ── بناء srcList منفصل لتجنب nested quotes error ──────────
+          $srcList = ($sources | ForEach-Object { '"' + $_ + '"' }) -join ' '
+
+          $cmd = "cl.exe " + ($flags -join ' ') + " " + `
+                 ($includes -join ' ') + " " + `
+                 ($defines -join ' ') + " " + `
+                 $srcList + `
+                 " /Fe:ekoflash.exe /link /LIBPATH:`"$VCPKG_LIB`" " + ($libs -join ' ')
 
           Write-Host "=== Building C++ backend ==="
+          Write-Host $cmd
           Invoke-Expression $cmd
 
           if (-not (Test-Path "ekoflash.exe")) {
@@ -118,7 +124,6 @@ jobs:
 
           $ns = "http://schemas.microsoft.com/developer/msbuild/2003"
 
-          # Files to embed
           $tools = @(
             "ekoflash.exe",
             "fastboot.exe",
@@ -129,7 +134,6 @@ jobs:
             "zadig.exe"
           )
 
-          # Find or create ItemGroup for EmbeddedResource
           $ig = $xml.Project.ItemGroup | Where-Object {
             $_.ChildNodes | Where-Object { $_.LocalName -eq "EmbeddedResource" }
           } | Select-Object -First 1
@@ -140,7 +144,6 @@ jobs:
           }
 
           foreach ($tool in $tools) {
-            # Skip if already present
             $exists = $ig.ChildNodes | Where-Object {
               $_.LocalName -eq "EmbeddedResource" -and $_.GetAttribute("Include") -eq $tool
             }
@@ -180,7 +183,6 @@ jobs:
             exit 1
           }
 
-          # Rename final output
           Rename-Item "publish_out\EkoFlashTool.exe" "EKOFLASH_TURBO.exe"
           Write-Host "EKOFLASH_TURBO.exe built OK"
 
