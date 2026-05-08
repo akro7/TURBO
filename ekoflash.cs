@@ -379,6 +379,40 @@ namespace MKVenomTool
             }
         }
 
+        // ===== Handlers required by XAML action bar =====
+        private async void WipeData_Click(object s, RoutedEventArgs e)
+        {
+            var r = await RunProcessAsync(ToolsManager.FastbootExe, "-w", 600000);
+            if (!string.IsNullOrWhiteSpace(r.Out)) AppendLog(r.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(r.Err)) AppendLog(r.Err.Trim());
+            AppendLog(r.Code == 0 ? "Wipe done." : $"Wipe FAILED (exit {r.Code}).");
+        }
+
+        private async void RebootSystem_Click(object s, RoutedEventArgs e)
+        {
+            if (_mode == FlashMode.Fastboot || _mode == FlashMode.Tools)
+            {
+                await RunProcessAsync(ToolsManager.FastbootExe, "reboot", 15000);
+                AppendLog("Reboot: fastboot reboot");
+            }
+            else
+            {
+                await RunProcessAsync(ToolsManager.AdbExe, "reboot", 15000);
+                AppendLog("Reboot: adb reboot");
+            }
+        }
+
+        private void ResetAll_Click(object s, RoutedEventArgs e)
+        {
+            foreach (var r in _fbRows) r.FilePath = "";
+            foreach (var r in _odinRows) r.FilePath = "";
+            _pitFilePath = "";
+            if (PitPathBox != null) PitPathBox.Text = "";
+            if (SideloadPathBox != null) SideloadPathBox.Text = "";
+            UpdateCommandPreview();
+            AppendLog("All cleared.");
+        }
+
         private async void LoadApps_Click(object sender, RoutedEventArgs e)
         {
             _backupApps.Clear();
