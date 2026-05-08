@@ -342,18 +342,19 @@
                                     </ItemsControl>
                                 </ScrollViewer>
 
-                                <Grid Grid.Row="2" Background="{StaticResource BgPanel}" Margin="0,8,0,0" Padding="0,5">
+                                <!-- ✅ FIX: removed Padding="0,5" from Grid, added Margin to inner StackPanel instead -->
+                                <Grid Grid.Row="2" Background="{StaticResource BgPanel}" Margin="0,8,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="30"/>
                                         <ColumnDefinition Width="70"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="134"/>
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="1" Background="{StaticResource NeAmber}" Padding="4,2" Margin="0,0,8,0" CornerRadius="2">
+                                    <Border Grid.Column="1" Background="{StaticResource NeAmber}" Padding="4,2" Margin="0,5,8,5" CornerRadius="2">
                                         <TextBlock Text="PIT" Foreground="#000000" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center"/>
                                     </Border>
-                                    <TextBox x:Name="TxtPitPath" Grid.Column="2" Style="{StaticResource NeonEntry}" Foreground="{StaticResource NeAmber}" Margin="0,0,8,0"/>
-                                    <Button Grid.Column="3" Content="SELECT" Style="{StaticResource NeonBtn}" Foreground="{StaticResource NeAmber}" HorizontalAlignment="Left" Width="60" Click="OdinBrowsePit_Click"/>
+                                    <TextBox x:Name="TxtPitPath" Grid.Column="2" Style="{StaticResource NeonEntry}" Foreground="{StaticResource NeAmber}" Margin="0,5,8,5"/>
+                                    <Button Grid.Column="3" Content="SELECT" Style="{StaticResource NeonBtn}" Foreground="{StaticResource NeAmber}" HorizontalAlignment="Left" Width="60" Margin="0,5,0,5" Click="OdinBrowsePit_Click"/>
                                 </Grid>
 
                                 <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,15,0,0">
