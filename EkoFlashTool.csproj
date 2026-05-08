@@ -6,11 +6,11 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    
-    <AssemblyName>EKOFLASH_PRO</AssemblyName>
+
+    <AssemblyName>EkoFlashTool</AssemblyName>
     <RootNamespace>MKVenomTool</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    
+
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -24,5 +24,31 @@
 
   <ItemGroup>
     <Resource Include="app.ico" />
-    
-    <None Update="adb.exe;
+  </ItemGroup>
+
+  <!-- Embed tools with logical names expected by ToolsManager -->
+  <ItemGroup>
+    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')">
+      <LogicalName>EkoFlashTool.Resources.ekoflash.exe</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="adb.exe" Condition="Exists('adb.exe')">
+      <LogicalName>EkoFlashTool.Resources.adb.exe</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="fastboot.exe" Condition="Exists('fastboot.exe')">
+      <LogicalName>EkoFlashTool.Resources.fastboot.exe</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="AdbWinApi.dll" Condition="Exists('AdbWinApi.dll')">
+      <LogicalName>EkoFlashTool.Resources.AdbWinApi.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="AdbWinUsbApi.dll" Condition="Exists('AdbWinUsbApi.dll')">
+      <LogicalName>EkoFlashTool.Resources.AdbWinUsbApi.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')">
+      <LogicalName>EkoFlashTool.Resources.libusb-1.0.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')">
+      <LogicalName>EkoFlashTool.Resources.zadig.exe</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
