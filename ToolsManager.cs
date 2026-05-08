@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 
@@ -9,23 +10,28 @@ namespace MKVenomTool
     public static class ToolsManager
     {
         public static readonly string ToolsRoot =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkoFlashTool", "bin");
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "EkoFlashTool", "bin");
 
         private static bool _extracted;
 
-        // Embedded resources -> extracted file path (relative to ToolsRoot)
-        private static readonly Dictionary<string, string> _resourceMap = new()
+        // Files we expect to extract from embedded resources
+        private static readonly string[] _files =
         {
-            ["res.pt.adb.exe"]          = Path.Combine("platform-tools", "adb.exe"),
-            ["res.pt.fastboot.exe"]     = Path.Combine("platform-tools", "fastboot.exe"),
-            ["res.pt.AdbWinApi.dll"]    = Path.Combine("platform-tools", "AdbWinApi.dll"),
-            ["res.pt.AdbWinUsbApi.dll"] = Path.Combine("platform-tools", "AdbWinUsbApi.dll"),
-
-            ["res.ok.ekoflash.exe"]     = Path.Combine("odin", "ekoflash.exe"),
-            ["res.ok.libusb.dll"]       = Path.Combine("odin", "libusb-1.0.dll"),
-
-            ["res.zd.zadig.exe"]        = Path.Combine("zadig", "zadig.exe")
+            "ekoflash.exe",
+            "adb.exe",
+            "fastboot.exe",
+            "AdbWinApi.dll",
+            "AdbWinUsbApi.dll",
+            "libusb-1.0.dll",
+            "zadig.exe"
         };
+
+        public static string EkoFlashExe => GetToolPath("ekoflash.exe");
+        public static string AdbExe => GetToolPath("adb.exe");
+        public static string FastbootExe => GetToolPath("fastboot.exe");
+        public static string ZadigExe => GetToolPath("zadig.exe");
 
         public static void EnsureExtracted()
         {
@@ -35,32 +41,37 @@ namespace MKVenomTool
             {
                 Directory.CreateDirectory(ToolsRoot);
                 var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+                var allResources = asm.GetManifestResourceNames();
 
-                foreach (var kv in _resourceMap)
+                foreach (var fileName in _files)
                 {
-                    var logicalName = kv.Key;
-                    var relPath = kv.Value;
-                    var dst = Path.Combine(ToolsRoot, relPath);
-
-                    Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                    var logicalName = FindResourceName(allResources, fileName);
+                    if (logicalName == null)
+                    {
+                        App.CrashLog("ToolsManager", $"Resource not found for file: {fileName}");
+                        continue;
+                    }
 
                     using var stream = asm.GetManifestResourceStream(logicalName);
                     if (stream == null)
                     {
-                        App.CrashLog("ToolsManager", $"Resource not found: {logicalName}");
+                        App.CrashLog("ToolsManager", $"Resource stream is null: {logicalName}");
                         continue;
                     }
 
-                    if (File.Exists(dst))
+                    string dest = Path.Combine(ToolsRoot, fileName);
+
+                    if (File.Exists(dest))
                     {
                         var srcMd5 = StreamMd5(stream);
                         stream.Seek(0, SeekOrigin.Begin);
-                        var dstMd5 = FileMd5(dst);
+                        var dstMd5 = FileMd5(dest);
+
                         if (string.Equals(srcMd5, dstMd5, StringComparison.OrdinalIgnoreCase))
                             continue;
                     }
 
-                    using var fs = File.Create(dst);
+                    using var fs = File.Create(dest);
                     stream.CopyTo(fs);
                 }
 
@@ -78,7 +89,7 @@ namespace MKVenomTool
             try
             {
                 if (Directory.Exists(ToolsRoot))
-                    Directory.Delete(ToolsRoot, true);
+                    Directory.Delete(ToolsRoot, recursive: true);
             }
             catch (Exception ex)
             {
@@ -86,30 +97,60 @@ namespace MKVenomTool
             }
         }
 
-        public static bool ExeExists(string folder, string exe)
+        public static bool Verify(out List<string> missing)
         {
-            var p = GetExePath(folder, exe);
-            return File.Exists(p);
+            missing = new List<string>();
+            foreach (var file in _files)
+            {
+                if (!File.Exists(Path.Combine(ToolsRoot, file)))
+                    missing.Add(file);
+            }
+
+            return missing.Count == 0;
         }
 
+        public static string GetToolPath(string fileName)
+        {
+            var path = Path.Combine(ToolsRoot, fileName);
+            return File.Exists(path) ? path : fileName;
+        }
+
+        public static bool ExeExists(string folder, string exe)
+        {
+            return File.Exists(GetExePath(folder, exe));
+        }
+
+        // Backward-compatible API used by BackupService and UI
         public static string GetExePath(string folder, string exe)
         {
-            var f = (folder ?? "").Trim().ToLowerInvariant();
-            var e = (exe ?? "").Trim().ToLowerInvariant();
-
+            string e = (exe ?? "").Trim();
             if (!e.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
                 !e.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
                 e += ".exe";
             }
 
+            var f = (folder ?? "").Trim().ToLowerInvariant();
+
             return f switch
             {
-                "platform-tools" => Path.Combine(ToolsRoot, "platform-tools", e),
-                "odin"           => Path.Combine(ToolsRoot, "odin", e),
-                "zadig"          => Path.Combine(ToolsRoot, "zadig", e),
-                _                => Path.Combine(ToolsRoot, e)
+                "platform-tools" => Path.Combine(ToolsRoot, e),
+                "odin" => Path.Combine(ToolsRoot, e),
+                "zadig" => Path.Combine(ToolsRoot, e),
+                _ => Path.Combine(ToolsRoot, e)
             };
+        }
+
+        public static bool IsReady() => _extracted && Verify(out _);
+
+        private static string? FindResourceName(IEnumerable<string> names, string fileName)
+        {
+            // prefer exact suffix match ".filename"
+            var hit = names.FirstOrDefault(n =>
+                n.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(n, fileName, StringComparison.OrdinalIgnoreCase));
+
+            return hit;
         }
 
         private static string FileMd5(string path)
