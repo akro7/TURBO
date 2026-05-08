@@ -7,18 +7,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     
-    <!-- اسم البرنامج النهائي -->
     <AssemblyName>EKOFLASH_PRO</AssemblyName>
     <RootNamespace>MKVenomTool</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
     
-    <!-- إعدادات النشر -->
+    <!-- نشر -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
-    <DebugType>embedded</DebugType>
+    
+    <!-- حل مشكلة التكرار -->
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,16 +38,6 @@
     <EmbeddedResource Include="AdbWinUsbApi.dll" LogicalName="MKVenomTool.Resources.AdbWinUsbApi.dll" />
     <EmbeddedResource Include="libusb-1.0.dll" LogicalName="MKVenomTool.Resources.libusb-1.0.dll" />
     <EmbeddedResource Include="zadig.exe" LogicalName="MKVenomTool.Resources.zadig.exe" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Main Window Files -->
-    <Page Include="ekoflash.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Compile Include="ekoflash.cs">
-      <DependentUpon>ekoflash.xaml</DependentUpon>
-    </Compile>
   </ItemGroup>
 
 </Project>
