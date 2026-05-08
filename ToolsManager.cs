@@ -10,13 +10,10 @@ namespace MKVenomTool
     public static class ToolsManager
     {
         public static readonly string ToolsRoot =
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "EkoFlashTool", "bin");
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EkoFlashTool", "bin");
 
         private static bool _extracted;
 
-        // Files we expect to extract from embedded resources
         private static readonly string[] _files =
         {
             "ekoflash.exe",
@@ -66,7 +63,6 @@ namespace MKVenomTool
                         var srcMd5 = StreamMd5(stream);
                         stream.Seek(0, SeekOrigin.Begin);
                         var dstMd5 = FileMd5(dest);
-
                         if (string.Equals(srcMd5, dstMd5, StringComparison.OrdinalIgnoreCase))
                             continue;
                     }
@@ -105,7 +101,6 @@ namespace MKVenomTool
                 if (!File.Exists(Path.Combine(ToolsRoot, file)))
                     missing.Add(file);
             }
-
             return missing.Count == 0;
         }
 
@@ -120,7 +115,6 @@ namespace MKVenomTool
             return File.Exists(GetExePath(folder, exe));
         }
 
-        // Backward-compatible API used by BackupService and UI
         public static string GetExePath(string folder, string exe)
         {
             string e = (exe ?? "").Trim();
@@ -130,27 +124,16 @@ namespace MKVenomTool
                 e += ".exe";
             }
 
-            var f = (folder ?? "").Trim().ToLowerInvariant();
-
-            return f switch
-            {
-                "platform-tools" => Path.Combine(ToolsRoot, e),
-                "odin" => Path.Combine(ToolsRoot, e),
-                "zadig" => Path.Combine(ToolsRoot, e),
-                _ => Path.Combine(ToolsRoot, e)
-            };
+            return Path.Combine(ToolsRoot, e);
         }
 
         public static bool IsReady() => _extracted && Verify(out _);
 
         private static string? FindResourceName(IEnumerable<string> names, string fileName)
         {
-            // prefer exact suffix match ".filename"
-            var hit = names.FirstOrDefault(n =>
+            return names.FirstOrDefault(n =>
                 n.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(n, fileName, StringComparison.OrdinalIgnoreCase));
-
-            return hit;
         }
 
         private static string FileMd5(string path)
