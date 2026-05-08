@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <!-- مهم: خليه EkoFlashTool عشان الـ workflow الحالي -->
+    <!-- خليه زي الـ workflow -->
     <AssemblyName>EkoFlashTool</AssemblyName>
     <RootNamespace>MKVenomTool</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
@@ -26,36 +26,7 @@
     <Resource Include="app.ico" />
   </ItemGroup>
 
-  <!-- platform-tools -->
-  <ItemGroup>
-    <EmbeddedResource Include="adb.exe" Condition="Exists('adb.exe')">
-      <LogicalName>res.pt.adb.exe</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="fastboot.exe" Condition="Exists('fastboot.exe')">
-      <LogicalName>res.pt.fastboot.exe</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="AdbWinApi.dll" Condition="Exists('AdbWinApi.dll')">
-      <LogicalName>res.pt.AdbWinApi.dll</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="AdbWinUsbApi.dll" Condition="Exists('AdbWinUsbApi.dll')">
-      <LogicalName>res.pt.AdbWinUsbApi.dll</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <!-- Odin engine (ekoflash) -->
-  <ItemGroup>
-    <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')">
-      <LogicalName>res.ok.ekoflash.exe</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="libusb-1.0.dll" Condition="Exists('libusb-1.0.dll')">
-      <LogicalName>res.ok.libusb.dll</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <!-- Zadig -->
-  <ItemGroup>
-    <EmbeddedResource Include="zadig.exe" Condition="Exists('zadig.exe')">
-      <LogicalName>res.zd.zadig.exe</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
+  <!-- مهم:
+       ما تضيفش EmbeddedResource للـ tools هنا
+       لأن الـ workflow بالفعل بيحقنهم في خطوة "Patch .csproj – embed ekoflash.exe + tools" -->
 </Project>
