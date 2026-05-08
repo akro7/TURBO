@@ -26,20 +26,36 @@ jobs:
           vcpkg install fmt:x64-windows-static spdlog:x64-windows-static
           vcpkg integrate install
 
-      - name: Patch Log Headers (Fix C2039/C2065)
+      - name: Fix xxhash - Generate xxhash.c from header-only vendor
         shell: pwsh
         run: |
-          # إصلاح شامل لملفات الهيدر لضمان توافق مكتبة fmt الحديثة
-          $filesToPatch = @("src\core\log.hpp", "src\app\cli_mode.hpp", "src\protocol\odin\odin_cmd.cpp")
-          foreach ($file in $filesToPatch) {
-            if (Test-Path $file) {
-              $content = Get-Content $file -Raw
-              if ($content -notmatch "fmt/format.h") {
-                # إضافة التضمينات الضرورية في بداية الملف
-                $newHeader = "#include <fmt/core.h>`n#include <fmt/format.h>`n"
-                $newHeader + $content | Set-Content $file -Encoding UTF8
-                Write-Host "Successfully patched: $file" -ForegroundColor Green
-              }
+          # xxhash in your repo is header-only (xxhash_vendor.h).
+          # We generate a .c file that enables the implementation.
+          $xxhashC = @"
+          #define XXH_STATIC_LINKING_ONLY
+          #define XXH_IMPLEMENTATION
+          #include "xxhash_vendor.h"
+          "@
+          $xxhashC | Set-Content "src\third_party\xxhash\xxhash.c" -Encoding UTF8
+          Write-Host "Generated xxhash.c successfully" -ForegroundColor Green
+
+      - name: Fix namespace conflicts in md5_xxh3_cache
+        shell: pwsh
+        run: |
+          # The file uses brokkr::core::Result and brokkr::core::Status
+          # but these types live in brokkr::app namespace locally.
+          # We inject a using directive at the top of the .cpp file.
+          $file = "src\app\md5_xxh3_cache.cpp"
+          if (Test-Path $file) {
+            $content = Get-Content $file -Raw
+            # Only patch if not already patched
+            if ($content -notmatch "using brokkr::app::Result") {
+              $patch = "// AUTO-PATCHED: resolve Status/Result namespace`n"
+              $patch += "namespace brokkr { namespace core {`n"
+              $patch += "  using Status = brokkr::app::Status;`n"
+              $patch += "} }`n`n"
+              $patch + $content | Set-Content $file -Encoding UTF8
+              Write-Host "Patched namespace in $file" -ForegroundColor Green
             }
           }
 
@@ -50,7 +66,10 @@ jobs:
           $mainContent = @"
           #include "cli_mode.hpp"
           int main(int argc, char* argv[]) {
-              return brokkr::app::run_cli(argc, argv);
+              if (brokkr::app::should_run_cli(argc, argv)) {
+                  return brokkr::app::run_cli(argc, argv);
+              }
+              return 0;
           }
           "@
           $mainContent | Set-Content "src\app\main.cpp" -Encoding UTF8
@@ -108,20 +127,30 @@ jobs:
             "/D", "NOMINMAX",
             "/D", "_WIN32_WINNT=0x0A00",
             "/D", "SPDLOG_FMT_EXTERNAL",
-            "/D", "FMT_HEADER_ONLY=0"
+            "/D", "FMT_HEADER_ONLY=0",
+            "/D", "XXH_STATIC_LINKING_ONLY",
+            "/D", "XXH_IMPLEMENTATION"
           )
 
           $flags = @(
-            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8", "/Zc:__cplusplus", "/permissive-"
+            "/std:c++20", "/O2", "/MT", "/EHsc", "/utf-8",
+            "/Zc:__cplusplus", "/permissive-",
+            "/wd4005"
           )
 
           $linkerFlags = @(
             "/link",
             "/LIBPATH:$VCPKG_LIB",
-            "Ws2_32.lib", "SetupAPI.lib", "User32.lib", "Advapi32.lib", "fmt.lib"
+            "Ws2_32.lib", "SetupAPI.lib", "User32.lib",
+            "Advapi32.lib", "fmt.lib"
           )
 
           & cl.exe $flags $includes $defines $sources /Fe:ekoflash.exe $linkerFlags
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Build failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
 
       - name: Upload Engine Artifact
         uses: actions/upload-artifact@v4
@@ -151,8 +180,13 @@ jobs:
       - name: Publish EKOFLASH PRO
         shell: pwsh
         run: |
-          # بناء الـ GUI وتضمين ملفات الـ EXE
-          dotnet publish EkoFlashTool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
+          dotnet publish EkoFlashTool.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o ./publish
 
       - name: Rename and Finalize
         shell: pwsh
