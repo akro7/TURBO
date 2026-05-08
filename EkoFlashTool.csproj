@@ -26,7 +26,6 @@
     <Resource Include="app.ico" />
   </ItemGroup>
 
-  <!-- Embed tools with logical names expected by ToolsManager -->
   <ItemGroup>
     <EmbeddedResource Include="ekoflash.exe" Condition="Exists('ekoflash.exe')">
       <LogicalName>EkoFlashTool.Resources.ekoflash.exe</LogicalName>
