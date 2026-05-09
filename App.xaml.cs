@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
-namespace EkoFlashTool
+namespace MKVenomTool
 {
     public partial class App : Application
     {
@@ -30,11 +30,11 @@ namespace EkoFlashTool
                 CrashLog("Tools Initialization", ex.ToString());
             }
 
-            // - Error 72 Fix: MainWindow وليس EkoFlashWindow
             var win = new MainWindow();
 
             try
             {
+                // ✅ icon.ico هو الاسم الموجود في الريبو
                 Uri iconUri = new Uri("pack://application:,,,/icon.ico", UriKind.RelativeOrAbsolute);
                 var sri = GetResourceStream(iconUri);
                 if (sri != null)
@@ -50,17 +50,19 @@ namespace EkoFlashTool
             try
             {
                 string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                string logFile     = Path.Combine(desktopPath, "EkoFlash_Crash.log");
 
-                string entry = $"[CRASH LOG - {DateTime.Now:yyyy-MM-dd HH:mm:ss}]{Environment.NewLine}" +
-                               $"SOURCE  : {src}{Environment.NewLine}"                                   +
-                               $"DETAILS : {msg}{Environment.NewLine}"                                   +
-                               $"{new string('═', 60)}{Environment.NewLine}";
+                // ✅ اسم الـ log متوافق مع اسم الأداة الجديدة
+                string logFile = Path.Combine(desktopPath, "EkoFlash_Crash.log");
 
-                File.AppendAllText(logFile, entry);
+                string formattedMsg = $"[CRASH LOG - {DateTime.Now:yyyy-MM-dd HH:mm:ss}]{Environment.NewLine}" +
+                                      $"SOURCE  : {src}{Environment.NewLine}" +
+                                      $"DETAILS : {msg}{Environment.NewLine}" +
+                                      $"{new string('=', 60)}{Environment.NewLine}";
+
+                File.AppendAllText(logFile, formattedMsg);
 
                 MessageBox.Show(
-                    $"⚡ EKO FLASH TOOL — Critical Error in: {src}{Environment.NewLine}{Environment.NewLine}" +
+                    $"EKO FLASH TOOL — Critical error in: {src}{Environment.NewLine}{Environment.NewLine}" +
                     $"Check 'EkoFlash_Crash.log' on your Desktop for details.",
                     "EkoFlash Tool | System Error",
                     MessageBoxButton.OK,
