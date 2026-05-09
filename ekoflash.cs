@@ -38,21 +38,17 @@ namespace MKVenomTool
             InitializeComponent();
             _uiReady = true;
 
-            // تطبيق التنسيق الافتراضي عند البدء
             ApplyTheme("Blue");
             
-            // بناء صفوف الفلاش
             BuildFastbootRows();
             BuildOdinRows();
             
-            // ضبط مصادر البيانات للقوائم
             if (RowsList != null) RowsList.ItemsSource = _fbRows;
             if (OdinRowsList != null) OdinRowsList.ItemsSource = _odinRows;
 
             SwitchMode(FlashMode.Fastboot);
             ShowTab("cmd");
 
-            // عرض رسالة الترحيب في الكونسول
             AppendLog("===============================================");
             AppendLog("   TURBO FLASH TOOL v1.0 READY");
             AppendLog("   Developed by: AHMED YOUNIS & Mohamed Khaled");
@@ -220,7 +216,6 @@ namespace MKVenomTool
             else if (_mode == FlashMode.Odin)
             {
                 AppendLog("[PROCESS] Invoking Turbo Odin Engine (ekoflash)...");
-                // منطق استدعاء ekoflash مع الملفات المختارة
                 string args = "";
                 foreach(var r in _odinRows.Where(x => !string.IsNullOrEmpty(x.FilePath)))
                     args += $"--{r.Key.ToLower()} \"{r.FilePath}\" ";
@@ -265,8 +260,8 @@ namespace MKVenomTool
             return await Task.Run(() => {
                 var res = new ProcessResult();
                 try {
-                    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dir, exe + ".exe");
-                    if (!File.Exists(path)) path = exe; // Fallback to system path
+                    string path = ToolsManager.GetExePath(dir, exe);
+                    if (!File.Exists(path)) path = exe;
 
                     var psi = new ProcessStartInfo(path, args) {
                         CreateNoWindow = true,
@@ -275,7 +270,7 @@ namespace MKVenomTool
                         RedirectStandardError = true
                     };
                     var p = Process.Start(psi);
-                    res.Out = p.StandardOutput.ReadToEnd();
+                    res.Out = p!.StandardOutput.ReadToEnd();
                     res.Err = p.StandardError.ReadToEnd();
                     p.WaitForExit();
                     res.Code = p.ExitCode;
@@ -284,7 +279,6 @@ namespace MKVenomTool
             });
         }
 
-        // Browse Buttons Implementation
         private void Browse_Click(object s, RoutedEventArgs e) {
             var btn = s as Button;
             var row = _fbRows.FirstOrDefault(x => x.Key == btn?.Tag?.ToString());
@@ -305,6 +299,7 @@ namespace MKVenomTool
     }
 
     #region Helper Classes
+    // ✅ تم حذف ToolsManager المكرر — الكلاس موجود في ToolsManager.cs
     public class FlashRow : INotifyPropertyChanged {
         public string Key { get; set; } = "";
         public string Label { get; set; } = "";
@@ -322,13 +317,6 @@ namespace MKVenomTool
         public int Code { get; set; }
         public string Out { get; set; } = "";
         public string Err { get; set; } = "";
-    }
-
-    public static class ToolsManager {
-        public static bool ExeExists(string dir, string name) {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dir, name + ".exe");
-            return File.Exists(path);
-        }
     }
     #endregion
 }
