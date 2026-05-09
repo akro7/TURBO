@@ -189,7 +189,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- ✅ x:Name مضاف للأزرار الأربعة -->
+                    <!-- --- x:Name مضاف للأزرار الأربعة -->
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="FastbootBtn" Content="FASTBOOT ENGINE" Style="{StaticResource ModeButton}" Width="160" Click="FastbootMode_Click"/>
                         <Button x:Name="OdinBtn"     Content="SAMSUNG ODIN"    Style="{StaticResource ModeButton}" Width="160" Click="OdinMode_Click"/>
