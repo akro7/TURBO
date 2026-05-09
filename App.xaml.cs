@@ -30,7 +30,8 @@ namespace EkoFlashTool
                 CrashLog("Tools Initialization", ex.ToString());
             }
 
-            var win = new EkoFlashWindow();
+            // - Error 72 Fix: MainWindow وليس EkoFlashWindow
+            var win = new MainWindow();
 
             try
             {
