@@ -13,8 +13,10 @@
 
     <Window.Resources>
         <SolidColorBrush x:Key="MainBgBrush"     Color="#050A14"/>
-        <SolidColorBrush x:Key="PanelBrush"      Color="#CC0D1B33"/> <SolidColorBrush x:Key="BorderBrush"     Color="#3352BFFF"/>
-        <SolidColorBrush x:Key="AccentBrush"     Color="#00E5FF"/> <SolidColorBrush x:Key="AccentSoftBrush" Color="#1A00E5FF"/>
+        <SolidColorBrush x:Key="PanelBrush"      Color="#CC0D1B33"/>
+        <SolidColorBrush x:Key="BorderBrush"     Color="#3352BFFF"/>
+        <SolidColorBrush x:Key="AccentBrush"     Color="#00E5FF"/>
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#1A00E5FF"/>
         <SolidColorBrush x:Key="DangerBrush"     Color="#FF4C78"/>
         <SolidColorBrush x:Key="SuccessBrush"    Color="#1CE17A"/>
         <SolidColorBrush x:Key="TextMutedBrush"  Color="#88B4D8"/>
@@ -109,7 +111,12 @@
         <Border Margin="15" Style="{StaticResource GlassPanel}">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/> <RowDefinition Height="Auto"/> <RowDefinition Height="*"/>    <RowDefinition Height="Auto"/> <RowDefinition Height="180"/>  </Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="180"/>
+                </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0" Margin="5,0,5,20">
                     <Grid.ColumnDefinitions>
@@ -126,7 +133,8 @@
                     </Border>
 
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="TURBO FLASH TOOL" FontSize="42" FontWeight="Black" Foreground="White" LetterSpacing="1">
+                        <!-- ✅ تم حذف LetterSpacing="1" -->
+                        <TextBlock Text="TURBO FLASH TOOL" FontSize="42" FontWeight="Black" Foreground="White">
                             <TextBlock.Effect>
                                 <DropShadowEffect BlurRadius="10" Color="#00E5FF" Opacity="0.5" ShadowDepth="0"/>
                             </TextBlock.Effect>
@@ -205,10 +213,10 @@
                                     </ItemsControl>
                                 </ScrollViewer>
                             </Grid>
-                            
+
                             <Grid x:Name="PanelOdin" Visibility="Collapsed">
                                 <TextBlock Text="SAMSUNG ODIN FLASHER" FontSize="18" Foreground="#FFB830" Margin="0,0,0,15" FontWeight="Bold"/>
-                                </Grid>
+                            </Grid>
                         </Grid>
                     </Border>
 
@@ -219,7 +227,7 @@
                                 <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True" Background="#08101E" BorderThickness="0" Foreground="#00FF95" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                             </Grid>
                         </Border>
-                        
+
                         <Border Style="{StaticResource GlassPanel}" VerticalAlignment="Stretch">
                             <StackPanel>
                                 <TextBlock Text="QUICK ACTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,10"/>
