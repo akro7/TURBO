@@ -34,7 +34,7 @@
             </Setter>
         </Style>
 
-        <!-- ✅ PathBox Style مضاف -->
+        <!-- -- PathBox Style مضاف -->
         <Style x:Key="PathBox" TargetType="TextBox">
             <Setter Property="Background"       Value="#0F1A2B"/>
             <Setter Property="Foreground"       Value="#B2DFFF"/>
