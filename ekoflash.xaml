@@ -226,7 +226,7 @@
                                 <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
                                 <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True" Background="#08101E" BorderThickness="0" Foreground="#00FF95" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                             </Grid>
-                        </border>
+                        </Border>
 
                         <Border Style="{StaticResource GlassPanel}" VerticalAlignment="Stretch">
                             <StackPanel>
