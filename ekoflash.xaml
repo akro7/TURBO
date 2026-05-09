@@ -133,7 +133,6 @@
                     </Border>
 
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <!-- ✅ تم حذف LetterSpacing="1" -->
                         <TextBlock Text="TURBO FLASH TOOL" FontSize="42" FontWeight="Black" Foreground="White">
                             <TextBlock.Effect>
                                 <DropShadowEffect BlurRadius="10" Color="#00E5FF" Opacity="0.5" ShadowDepth="0"/>
@@ -146,11 +145,12 @@
                         </StackPanel>
                     </StackPanel>
 
+                    <!-- ✅ تم حذف CornerRadius من الأزرار الثلاثة -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
                         <TextBlock Text="Custom Themes" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,5,10,0"/>
-                        <Button Style="{StaticResource ModeButton}" Width="25" Height="25" Background="#00E5FF" CornerRadius="12" Click="Swatch_Click" Tag="Blue"/>
-                        <Button Style="{StaticResource ModeButton}" Width="25" Height="25" Background="#A100FF" CornerRadius="12" Click="Swatch_Click" Tag="Purple" Margin="5,0"/>
-                        <Button Style="{StaticResource ModeButton}" Width="25" Height="25" Background="#FF0055" CornerRadius="12" Click="Swatch_Click" Tag="Crimson"/>
+                        <Button Style="{StaticResource ModeButton}" Width="25" Height="25" Background="#00E5FF" Click="Swatch_Click" Tag="Blue"/>
+                        <Button Style="{StaticResource ModeButton}" Width="25" Height="25" Background="#A100FF" Click="Swatch_Click" Tag="Purple" Margin="5,0"/>
+                        <Button Style="{StaticResource ModeButton}" Width="25" Height="25" Background="#FF0055" Click="Swatch_Click" Tag="Crimson"/>
                     </StackPanel>
                 </Grid>
 
@@ -226,7 +226,7 @@
                                 <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
                                 <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True" Background="#08101E" BorderThickness="0" Foreground="#00FF95" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                             </Grid>
-                        </Border>
+                        </border>
 
                         <Border Style="{StaticResource GlassPanel}" VerticalAlignment="Stretch">
                             <StackPanel>
