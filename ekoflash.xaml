@@ -34,6 +34,30 @@
             </Setter>
         </Style>
 
+        <!-- ✅ PathBox Style مضاف -->
+        <Style x:Key="PathBox" TargetType="TextBox">
+            <Setter Property="Background"       Value="#0F1A2B"/>
+            <Setter Property="Foreground"       Value="#B2DFFF"/>
+            <Setter Property="BorderBrush"      Value="#2A3F5F"/>
+            <Setter Property="BorderThickness"  Value="1"/>
+            <Setter Property="Padding"          Value="8,5"/>
+            <Setter Property="FontFamily"       Value="Consolas"/>
+            <Setter Property="FontSize"         Value="11"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="2"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ModeButton" TargetType="Button">
             <Setter Property="Foreground"      Value="#D6E9FF"/>
             <Setter Property="Background"      Value="#152033"/>
@@ -118,6 +142,7 @@
                     <RowDefinition Height="180"/>
                 </Grid.RowDefinitions>
 
+                <!-- ══ ROW 0: Header ══ -->
                 <Grid Grid.Row="0" Margin="5,0,5,20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -125,10 +150,14 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Border Width="70" Height="70" CornerRadius="15" Background="#10182D" BorderBrush="{StaticResource AccentBrush}" BorderThickness="2" Margin="0,0,15,0">
+                    <Border Width="70" Height="70" CornerRadius="15" Background="#10182D"
+                            BorderBrush="{StaticResource AccentBrush}" BorderThickness="2" Margin="0,0,15,0">
                         <Grid>
-                            <TextBlock Text="T" FontSize="36" FontWeight="Black" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Ellipse Width="50" Height="50" Stroke="{StaticResource AccentBrush}" StrokeThickness="1" Opacity="0.3" StrokeDashArray="4 2"/>
+                            <TextBlock Text="T" FontSize="36" FontWeight="Black"
+                                       Foreground="{StaticResource AccentBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Ellipse Width="50" Height="50" Stroke="{StaticResource AccentBrush}"
+                                     StrokeThickness="1" Opacity="0.3" StrokeDashArray="4 2"/>
                         </Grid>
                     </Border>
 
@@ -145,7 +174,6 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- ✅ تم حذف CornerRadius من الأزرار الثلاثة -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
                         <TextBlock Text="Custom Themes" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,5,10,0"/>
                         <Button Style="{StaticResource ModeButton}" Width="25" Height="25" Background="#00E5FF" Click="Swatch_Click" Tag="Blue"/>
@@ -154,20 +182,23 @@
                     </StackPanel>
                 </Grid>
 
+                <!-- ══ ROW 1: Mode Buttons + Device Status ══ -->
                 <Grid Grid.Row="1" Margin="5,0,5,15">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
+                    <!-- ✅ x:Name مضاف للأزرار الأربعة -->
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="FASTBOOT ENGINE" Style="{StaticResource ModeButton}" Width="160" Click="FastbootMode_Click"/>
-                        <Button Content="SAMSUNG ODIN" Style="{StaticResource ModeButton}" Width="160" Click="OdinMode_Click"/>
-                        <Button Content="ADB SIDELOAD" Style="{StaticResource ModeButton}" Width="160" Click="SideloadMode_Click"/>
-                        <Button Content="SYSTEM TOOLS" Style="{StaticResource ModeButton}" Width="160" Click="ToolsMode_Click"/>
+                        <Button x:Name="FastbootBtn" Content="FASTBOOT ENGINE" Style="{StaticResource ModeButton}" Width="160" Click="FastbootMode_Click"/>
+                        <Button x:Name="OdinBtn"     Content="SAMSUNG ODIN"    Style="{StaticResource ModeButton}" Width="160" Click="OdinMode_Click"/>
+                        <Button x:Name="SideloadBtn" Content="ADB SIDELOAD"    Style="{StaticResource ModeButton}" Width="160" Click="SideloadMode_Click"/>
+                        <Button x:Name="ToolsBtn"    Content="SYSTEM TOOLS"    Style="{StaticResource ModeButton}" Width="160" Click="ToolsMode_Click"/>
                     </StackPanel>
 
-                    <Border Grid.Column="1" Background="#101B2F" CornerRadius="10" Padding="15,5" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                    <Border Grid.Column="1" Background="#101B2F" CornerRadius="10" Padding="15,5"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                         <StackPanel Orientation="Horizontal">
                             <StackPanel VerticalAlignment="Center" Margin="0,0,15,0">
                                 <TextBlock Text="DEVICE CONNECTIVITY" Foreground="{StaticResource TextMutedBrush}" FontSize="10" FontWeight="Bold"/>
@@ -178,20 +209,24 @@
                     </Border>
                 </Grid>
 
+                <!-- ══ ROW 2: Main Content ══ -->
                 <Grid Grid.Row="2" Margin="5,0,5,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="320"/>
                     </Grid.ColumnDefinitions>
 
+                    <!-- Main Panel Area -->
                     <Border Style="{StaticResource GlassPanel}" Background="#0D1626">
                         <Grid>
-                            <Grid x:Name="PanelFastboot">
+                            <!-- ✅ PanelFastboot -->
+                            <Grid x:Name="PanelFastboot" Visibility="Visible">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="FLASH PARTITION MANAGER" FontSize="18" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
+                                <TextBlock Text="FLASH PARTITION MANAGER" FontSize="18"
+                                           Foreground="{StaticResource AccentBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
                                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                     <ItemsControl x:Name="RowsList">
                                         <ItemsControl.ItemTemplate>
@@ -204,9 +239,9 @@
                                                         <ColumnDefinition Width="80"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Foreground="#B2DFFF" FontSize="12"/>
-                                                    <TextBox Grid.Column="1" Style="{StaticResource PathBox}" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Background="#0F1A2B" BorderBrush="#2A3F5F" Padding="8,5"/>
+                                                    <TextBox Grid.Column="1" Style="{StaticResource PathBox}" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"/>
                                                     <Button Grid.Column="2" Content="BROWSE" Style="{StaticResource ModeButton}" Margin="5,0" Click="Browse_Click" Tag="{Binding Key}"/>
-                                                    <Button Grid.Column="3" Content="FLASH" Style="{StaticResource FlashBtn}" Click="FlashOne_Click" Tag="{Binding Key}"/>
+                                                    <Button Grid.Column="3" Content="FLASH"  Style="{StaticResource FlashBtn}" Click="FlashOne_Click" Tag="{Binding Key}"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -214,31 +249,125 @@
                                 </ScrollViewer>
                             </Grid>
 
+                            <!-- ✅ PanelOdin -->
                             <Grid x:Name="PanelOdin" Visibility="Collapsed">
-                                <TextBlock Text="SAMSUNG ODIN FLASHER" FontSize="18" Foreground="#FFB830" Margin="0,0,0,15" FontWeight="Bold"/>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="SAMSUNG ODIN FLASHER" FontSize="18"
+                                           Foreground="#FFB830" Margin="0,0,0,15" FontWeight="Bold"/>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="OdinRowsList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="110"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="90"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Foreground="#FFD580" FontSize="12"/>
+                                                    <TextBox Grid.Column="1" Style="{StaticResource PathBox}" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <Button Grid.Column="2" Content="BROWSE" Style="{StaticResource ModeButton}" Margin="5,0" Click="Browse_Click" Tag="{Binding Key}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+
+                            <!-- ✅ PanelSideload -->
+                            <Grid x:Name="PanelSideload" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="ADB SIDELOAD" FontSize="18"
+                                           Foreground="{StaticResource SuccessBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
+                                <StackPanel Grid.Row="1" VerticalAlignment="Top">
+                                    <TextBlock Text="Select ZIP file to sideload:" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="100"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="SideloadPathBox" Style="{StaticResource PathBox}"/>
+                                        <Button Grid.Column="1" Content="BROWSE" Style="{StaticResource ModeButton}" Margin="5,0,0,0" Click="Browse_Click" Tag="sideload"/>
+                                    </Grid>
+                                    <Button Content="START SIDELOAD" Style="{StaticResource FlashBtn}" Height="40" Margin="0,15,0,0" Click="FlashAll_Click"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ✅ PanelTools -->
+                            <Grid x:Name="PanelTools" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="SYSTEM TOOLS" FontSize="18"
+                                           Foreground="{StaticResource DangerBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
+                                <StackPanel Grid.Row="1">
+                                    <Button Content="INSTALL ADB DRIVERS (ZADIG)" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="zadig"/>
+                                    <Button Content="REBOOT TO RECOVERY" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot recovery"/>
+                                    <Button Content="REBOOT TO DOWNLOAD MODE" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot download"/>
+                                    <Button Content="WIPE CACHE PARTITION" Style="{StaticResource ModeButton}" Height="40" Width="Auto" Foreground="{StaticResource DangerBrush}" Click="QuickCmd_Click" Tag="fastboot erase cache"/>
+                                </StackPanel>
                             </Grid>
                         </Grid>
                     </Border>
 
+                    <!-- Right Panel -->
                     <StackPanel Grid.Column="1" Margin="15,0,0,0">
-                        <Border Style="{StaticResource GlassPanel}" Height="250" Margin="0,0,0,15">
-                            <Grid>
-                                <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
-                                <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True" Background="#08101E" BorderThickness="0" Foreground="#00FF95" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
-                            </Grid>
-                        </Border>
 
-                        <Border Style="{StaticResource GlassPanel}" VerticalAlignment="Stretch">
-                            <StackPanel>
-                                <TextBlock Text="QUICK ACTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,10"/>
-                                <Button Content="REBOOT TO SYSTEM" Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot" Click="QuickCmd_Click"/>
-                                <Button Content="REBOOT BOOTLOADER" Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot bootloader" Click="QuickCmd_Click"/>
-                                <Button Content="ERASE USERDATA" Style="{StaticResource ModeButton}" Width="Auto" Foreground="#FF6D6D" Click="QuickCmd_Click" Tag="fastboot erase userdata"/>
-                            </StackPanel>
-                        </Border>
+                        <!-- ✅ Tab Buttons -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button x:Name="TabCmdBtn" Content="COMMANDS" Style="{StaticResource ModeButton}"
+                                    Width="140" Click="TabCmd_Click"/>
+                            <Button x:Name="TabOptBtn" Content="OPTIONS" Style="{StaticResource ModeButton}"
+                                    Width="140" Click="TabOptions_Click"/>
+                        </StackPanel>
+
+                        <!-- ✅ TabCmdPanel -->
+                        <StackPanel x:Name="TabCmdPanel">
+                            <Border Style="{StaticResource GlassPanel}" Height="200" Margin="0,0,0,12">
+                                <Grid>
+                                    <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}"
+                                               FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
+                                    <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True"
+                                             Background="#08101E" BorderThickness="0" Foreground="#00FF95"
+                                             FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource GlassPanel}">
+                                <StackPanel>
+                                    <TextBlock Text="QUICK ACTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}"
+                                               FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <Button Content="REBOOT TO SYSTEM"    Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot"            Click="QuickCmd_Click"/>
+                                    <Button Content="REBOOT BOOTLOADER"   Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot bootloader" Click="QuickCmd_Click"/>
+                                    <Button Content="ERASE USERDATA" Style="{StaticResource ModeButton}" Width="Auto" Foreground="{StaticResource DangerBrush}" Tag="fastboot erase userdata" Click="QuickCmd_Click"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ✅ TabOptionsPanel -->
+                        <StackPanel x:Name="TabOptionsPanel" Visibility="Collapsed">
+                            <Border Style="{StaticResource GlassPanel}">
+                                <StackPanel>
+                                    <TextBlock Text="FLASH OPTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}"
+                                               FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <CheckBox Content="Skip verification" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                                    <CheckBox Content="Wipe userdata after flash" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                                    <CheckBox Content="Reboot after flash" Foreground="{StaticResource TextMutedBrush}" IsChecked="True"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
                     </StackPanel>
                 </Grid>
 
+                <!-- ══ ROW 3: Progress ══ -->
                 <Grid Grid.Row="3" Margin="5,15,5,15">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -246,8 +375,10 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel>
-                        <TextBlock x:Name="ProgressStatusText" Text="Ready to Process..." Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,0,0,5"/>
-                        <ProgressBar x:Name="MainProgress" Height="12" Background="#101B2F" Foreground="{StaticResource AccentBrush}" BorderThickness="0">
+                        <TextBlock x:Name="ProgressStatusText" Text="Ready to Process..."
+                                   Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,0,0,5"/>
+                        <ProgressBar x:Name="MainProgress" Height="12" Background="#101B2F"
+                                     Foreground="{StaticResource AccentBrush}" BorderThickness="0">
                             <ProgressBar.Effect>
                                 <BlurEffect Radius="2" RenderingBias="Quality"/>
                             </ProgressBar.Effect>
@@ -255,17 +386,25 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Bottom">
-                        <Button x:Name="FlashAllBtn" Content="START FLASHING" Style="{StaticResource FlashBtn}" Width="180" Height="40" FontSize="14" Click="FlashAll_Click"/>
-                        <Button x:Name="CancelBtn" Content="STOP" Style="{StaticResource ModeButton}" Width="90" Height="40" Margin="10,0,0,0" Foreground="{StaticResource DangerBrush}" Click="Cancel_Click"/>
+                        <Button x:Name="FlashAllBtn" Content="START FLASHING" Style="{StaticResource FlashBtn}"
+                                Width="180" Height="40" FontSize="14" Click="FlashAll_Click"/>
+                        <Button x:Name="CancelBtn"   Content="STOP"           Style="{StaticResource ModeButton}"
+                                Width="90"  Height="40" Margin="10,0,0,0" Foreground="{StaticResource DangerBrush}" Click="Cancel_Click"/>
                     </StackPanel>
                 </Grid>
 
-                <Border Grid.Row="4" Margin="5,0,5,5" Background="#03070F" CornerRadius="10" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                <!-- ══ ROW 4: Log Terminal ══ -->
+                <Border Grid.Row="4" Margin="5,0,5,5" Background="#03070F" CornerRadius="10"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                     <Grid>
-                        <TextBlock Text="TURBO TERMINAL OUTPUT" Foreground="#3352BFFF" FontSize="10" FontWeight="Bold" Margin="10,5" VerticalAlignment="Top" HorizontalAlignment="Right"/>
-                        <TextBox x:Name="LogBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" Background="Transparent" Foreground="#D7F1FF" BorderThickness="0" FontFamily="Consolas" FontSize="12" Padding="12" AcceptsReturn="True"/>
+                        <TextBlock Text="TURBO TERMINAL OUTPUT" Foreground="#3352BFFF" FontSize="10"
+                                   FontWeight="Bold" Margin="10,5" VerticalAlignment="Top" HorizontalAlignment="Right"/>
+                        <TextBox x:Name="LogBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                                 Background="Transparent" Foreground="#D7F1FF" BorderThickness="0"
+                                 FontFamily="Consolas" FontSize="12" Padding="12" AcceptsReturn="True"/>
                     </Grid>
                 </Border>
+
             </Grid>
         </Border>
     </Grid>
