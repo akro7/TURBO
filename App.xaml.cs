@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
-namespace MKVenomTool
+namespace EkoFlashTool
 {
     public partial class App : Application
     {
@@ -21,29 +21,25 @@ namespace MKVenomTool
 
             base.OnStartup(e);
 
-            try 
-            { 
-                ToolsManager.EnsureExtracted(); 
+            try
+            {
+                ToolsManager.EnsureExtracted();
             }
-            catch (Exception ex) 
-            { 
-                CrashLog("Tools Initialization", ex.ToString()); 
+            catch (Exception ex)
+            {
+                CrashLog("Tools Initialization", ex.ToString());
             }
 
-            var win = new MainWindow();
+            var win = new EkoFlashWindow();
 
             try
             {
-                Uri iconUri = new Uri("pack://application:,,,/app.ico", UriKind.RelativeOrAbsolute);
+                Uri iconUri = new Uri("pack://application:,,,/icon.ico", UriKind.RelativeOrAbsolute);
                 var sri = GetResourceStream(iconUri);
                 if (sri != null)
-                {
                     win.Icon = BitmapFrame.Create(sri.Stream);
-                }
             }
-            catch
-            {
-            }
+            catch { }
 
             win.Show();
         }
@@ -53,25 +49,23 @@ namespace MKVenomTool
             try
             {
                 string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                string logFile = Path.Combine(desktopPath, "MKVenom_EKO_Crash.log");
+                string logFile     = Path.Combine(desktopPath, "EkoFlash_Crash.log");
 
-                string formattedMsg = $"[DEBUG LOG - {DateTime.Now:yyyy-MM-dd HH:mm:ss}]{Environment.NewLine}" +
-                                     $"SOURCE: {src}{Environment.NewLine}" +
-                                     $"DETAILS: {msg}{Environment.NewLine}" +
-                                     $"{new string('=', 60)}{Environment.NewLine}";
+                string entry = $"[CRASH LOG - {DateTime.Now:yyyy-MM-dd HH:mm:ss}]{Environment.NewLine}" +
+                               $"SOURCE  : {src}{Environment.NewLine}"                                   +
+                               $"DETAILS : {msg}{Environment.NewLine}"                                   +
+                               $"{new string('═', 60)}{Environment.NewLine}";
 
-                File.AppendAllText(logFile, formattedMsg);
+                File.AppendAllText(logFile, entry);
 
                 MessageBox.Show(
-                    $"Critical system alert within {src}.{Environment.NewLine}{Environment.NewLine}" +
-                    $"Check 'MKVenom_EKO_Crash.log' on your desktop for technical details.",
-                    "MK Venom Tool | System Breach",
+                    $"⚡ EKO FLASH TOOL — Critical Error in: {src}{Environment.NewLine}{Environment.NewLine}" +
+                    $"Check 'EkoFlash_Crash.log' on your Desktop for details.",
+                    "EkoFlash Tool | System Error",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 }
