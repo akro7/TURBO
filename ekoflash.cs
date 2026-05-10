@@ -24,7 +24,8 @@ namespace MKVenomTool
             Fastboot,
             Odin,
             Sideload,
-            Tools
+            Tools,
+            Backup
         }
 
         // ekoflash CLI (Brokkr) expects short args, not --ap/--bl...
@@ -46,6 +47,8 @@ namespace MKVenomTool
         private bool _deviceConnected;
         private bool _deviceChecked;
         private CancellationTokenSource? _cts;
+        private CancellationTokenSource? _backupCts;
+        private string _backupSubTab = "backup";
 
         public MainWindow()
         {
@@ -150,6 +153,7 @@ namespace MKVenomTool
             PanelOdin.Visibility = mode == FlashMode.Odin ? Visibility.Visible : Visibility.Collapsed;
             PanelSideload.Visibility = mode == FlashMode.Sideload ? Visibility.Visible : Visibility.Collapsed;
             PanelTools.Visibility = mode == FlashMode.Tools ? Visibility.Visible : Visibility.Collapsed;
+            PanelBackup.Visibility = mode == FlashMode.Backup ? Visibility.Visible : Visibility.Collapsed;
 
             DeviceStatusText.Text = "NOT CHECKED";
             DeviceStatusText.Foreground = Brushes.Gray;
@@ -158,12 +162,21 @@ namespace MKVenomTool
             UpdateCommandPreview();
 
             AppendLog($"[MODE] -> {mode.ToString().ToUpperInvariant()}");
+
+            if (mode == FlashMode.Backup)
+            {
+                _backupSubTab = "backup";
+                if (BackupSubPanel != null) BackupSubPanel.Visibility = Visibility.Visible;
+                if (RestoreSubPanel != null) RestoreSubPanel.Visibility = Visibility.Collapsed;
+                _ = LoadInstalledAppsAsync();
+            }
         }
 
         private void FastbootMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
         private void OdinMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
         private void SideloadMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
         private void ToolsMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Tools);
+        private void BackupMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Backup);
 
         private void SetModeButtonVisual()
         {
@@ -174,6 +187,7 @@ namespace MKVenomTool
             OdinBtn.Background = _mode == FlashMode.Odin ? active : inactive;
             SideloadBtn.Background = _mode == FlashMode.Sideload ? active : inactive;
             ToolsBtn.Background = _mode == FlashMode.Tools ? active : inactive;
+            BackupBtn.Background = _mode == FlashMode.Backup ? active : inactive;
         }
 
         // ----------------------------- Rows -----------------------------
@@ -216,6 +230,7 @@ namespace MKVenomTool
                 FlashMode.Fastboot => await DetectFastbootAsync(),
                 FlashMode.Odin => await DetectOdinDownloadModeAsync(),
                 FlashMode.Sideload => await DetectAdbAsync(allowSideload: true),
+                FlashMode.Backup => await DetectAdbAsync(allowSideload: false),
                 _ => await DetectAdbAsync(allowSideload: false)
             };
 
@@ -257,7 +272,6 @@ namespace MKVenomTool
 
                 var state = GetStateFromToolLine(line).ToLowerInvariant();
 
-                // unauthorized still means cable/driver/device is physically visible
                 if (state == "device" || state == "recovery" || state == "unauthorized")
                     return true;
 
@@ -270,7 +284,6 @@ namespace MKVenomTool
 
         private async Task<bool> DetectOdinDownloadModeAsync()
         {
-            // Try list twice to avoid transient USB timing misses
             for (int i = 0; i < 2; i++)
             {
                 var listResult = await RunAsync("odin", "ekoflash", "--list");
@@ -285,7 +298,6 @@ namespace MKVenomTool
                 await Task.Delay(180);
             }
 
-            // Legacy detect fallback (some builds keep it)
             for (int i = 0; i < 2; i++)
             {
                 var detectResult = await RunAsync("odin", "ekoflash", "detect");
@@ -300,7 +312,6 @@ namespace MKVenomTool
                 await Task.Delay(180);
             }
 
-            // Windows fallback for Samsung VID
             return await DetectOdinByPnpUtilAsync();
         }
 
@@ -434,6 +445,7 @@ namespace MKVenomTool
                     FlashMode.Fastboot => await FlashFastboot(_cts.Token),
                     FlashMode.Odin => await FlashOdin(_cts.Token),
                     FlashMode.Sideload => await FlashSideload(_cts.Token),
+                    FlashMode.Backup => await StartBackupFlowAsync(),
                     _ => false
                 };
 
@@ -601,6 +613,193 @@ namespace MKVenomTool
             return true;
         }
 
+        // ----------------------------- Backup & Restore -----------------------------
+        private void BackupSubTab_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn) return;
+            _backupSubTab = btn.Tag?.ToString() ?? "backup";
+
+            BackupSubPanel.Visibility = _backupSubTab == "backup" ? Visibility.Visible : Visibility.Collapsed;
+            RestoreSubPanel.Visibility = _backupSubTab == "restore" ? Visibility.Visible : Visibility.Collapsed;
+
+            if (_backupSubTab == "restore")
+            {
+                _ = LoadBackupListAsync();
+            }
+        }
+
+        private async void RefreshApps_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadInstalledAppsAsync();
+        }
+
+        private async Task LoadInstalledAppsAsync()
+        {
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Scan device first.");
+                return;
+            }
+
+            AppendLog("[BACKUP] Checking root...");
+            bool rooted = await BackupService.CheckRootAsync(AppendLog);
+            if (!rooted)
+            {
+                AppendLog("[ERR] Root not available. Backup requires rooted device.");
+                return;
+            }
+
+            AppendLog("[BACKUP] Loading installed apps...");
+            var apps = await BackupService.GetInstalledAppsAsync(AppendLog);
+
+            Dispatcher.Invoke(() =>
+            {
+                AppListBox.ItemsSource = apps;
+                AppListHeader.Text = $"INSTALLED APPS ({apps.Count})";
+                AppendLog($"[OK] Loaded {apps.Count} app(s).");
+            });
+        }
+
+        private void SelectAllApps_Click(object sender, RoutedEventArgs e)
+        {
+            AppListBox.SelectAll();
+        }
+
+        private void ClearApps_Click(object sender, RoutedEventArgs e)
+        {
+            AppListBox.UnselectAll();
+        }
+
+        private async Task<bool> StartBackupFlowAsync()
+        {
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Scan device first.");
+                return false;
+            }
+
+            var selected = AppListBox.SelectedItems.Cast<AppEntry>().ToList();
+            if (selected.Count == 0)
+            {
+                AppendLog("[!] Select at least one app for backup.");
+                return false;
+            }
+
+            var options = new BackupOptions
+            {
+                BackupApk = ChkBackupApk.IsChecked == true,
+                BackupData = ChkBackupData.IsChecked == true,
+                BackupUserDe = ChkBackupUserDe.IsChecked == true,
+                BackupObb = ChkBackupObb.IsChecked == true
+            };
+
+            _backupCts = new CancellationTokenSource();
+
+            StartBackupBtn.IsEnabled = false;
+            BackupProgress.Value = 0;
+            BackupProgressText.Visibility = Visibility.Visible;
+
+            int done = 0;
+            int total = selected.Count;
+            int success = 0;
+
+            AppendLog($"[BACKUP] Starting {total} app(s)...");
+
+            foreach (var app in selected)
+            {
+                if (_backupCts.Token.IsCancellationRequested)
+                {
+                    AppendLog("[STOP] Backup cancelled by user.");
+                    break;
+                }
+
+                BackupProgressText.Text = $"[{done + 1}/{total}] {app.DisplayName}";
+                AppendLog($"[BACKUP] [{done + 1}/{total}] {app.DisplayName}");
+
+                bool ok = await BackupService.BackupAppAsync(
+                    app.PackageName,
+                    app.DisplayName,
+                    options,
+                    AppendLog);
+
+                if (ok) success++;
+                done++;
+
+                Dispatcher.Invoke(() =>
+                {
+                    BackupProgress.Value = (done * 100.0) / total;
+                });
+            }
+
+            StartBackupBtn.IsEnabled = true;
+            _backupCts = null;
+
+            AppendLog($"[DONE] Backup finished: {success}/{total} success.");
+            BackupProgressText.Text = $"Done: {success}/{total}";
+            return success > 0;
+        }
+
+        private async void StartBackup_Click(object sender, RoutedEventArgs e)
+        {
+            await StartBackupFlowAsync();
+        }
+
+        private void StopBackup_Click(object sender, RoutedEventArgs e)
+        {
+            _backupCts?.Cancel();
+        }
+
+        private async Task LoadBackupListAsync()
+        {
+            AppendLog("[RESTORE] Loading backups...");
+            var backups = await BackupService.GetBackupsAsync(AppendLog);
+
+            Dispatcher.Invoke(() =>
+            {
+                BackupListGrid.ItemsSource = backups;
+                BackupRootText.Text = $"Backup root: {BackupService.BackupRoot}";
+                AppendLog(backups.Count == 0
+                    ? "[RESTORE] No backups found."
+                    : $"[RESTORE] {backups.Count} backup(s) loaded.");
+            });
+        }
+
+        private async void RestoreEntry_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Scan device first.");
+                return;
+            }
+
+            if (sender is not Button btn) return;
+            string backupPath = btn.Tag?.ToString() ?? "";
+
+            if (string.IsNullOrWhiteSpace(backupPath) || !Directory.Exists(backupPath))
+            {
+                AppendLog("[ERR] Backup path not found.");
+                return;
+            }
+
+            var res = MessageBox.Show(
+                $"Restore from:\n{backupPath}\n\nThis will overwrite current app data. Continue?",
+                "Confirm Restore",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (res != MessageBoxResult.Yes) return;
+
+            btn.IsEnabled = false;
+            AppendLog($"[RESTORE] Starting restore: {backupPath}");
+
+            bool ok = await BackupService.RestoreBackupAsync(backupPath, AppendLog);
+
+            if (ok) AppendLog("[OK] Restore completed.");
+            else AppendLog("[ERR] Restore failed.");
+
+            btn.IsEnabled = true;
+        }
+
         // ----------------------------- Flash one -----------------------------
         private async void FlashOne_Click(object s, RoutedEventArgs e)
         {
@@ -651,6 +850,7 @@ namespace MKVenomTool
         private void Cancel_Click(object s, RoutedEventArgs e)
         {
             _cts?.Cancel();
+            _backupCts?.Cancel();
             AppendLog("[STOP] Cancelled by user.");
         }
 
@@ -700,6 +900,7 @@ namespace MKVenomTool
                 FlashMode.Fastboot => BuildFastbootPreview(),
                 FlashMode.Odin => BuildOdinPreview(),
                 FlashMode.Sideload => $"adb sideload \"{SideloadPathBox?.Text}\"",
+                FlashMode.Backup => "adb shell su -c \"pm list packages -3\"",
                 _ => "Select a mode above."
             };
         }
@@ -723,84 +924,4 @@ namespace MKVenomTool
                     return $"{flag} \"{r.FilePath}\"";
                 });
 
-            return parts.Any() ? "ekoflash " + string.Join(" ", parts) : "ekoflash -b -a -c -s -u ...";
-        }
-
-        // ----------------------------- Logging -----------------------------
-        private void AppendLog(string msg) => Dispatcher.Invoke(() =>
-        {
-            LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
-            LogBox.ScrollToEnd();
-            ProgressStatusText.Text = msg;
-        });
-
-        // ----------------------------- Runner -----------------------------
-        private Task<ProcessResult> RunAsync(string dir, string exe, string args, CancellationToken ct = default)
-        {
-            return Task.Run(() =>
-            {
-                var res = new ProcessResult();
-
-                try
-                {
-                    string path = !string.IsNullOrWhiteSpace(dir) ? ToolsManager.GetExePath(dir, exe) : exe;
-                    if (!File.Exists(path))
-                        path = exe; // fallback PATH
-
-                    var psi = new ProcessStartInfo(path, args)
-                    {
-                        CreateNoWindow = true,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true
-                    };
-
-                    using var p = Process.Start(psi)!;
-                    res.Out = p.StandardOutput.ReadToEnd();
-                    res.Err = p.StandardError.ReadToEnd();
-                    p.WaitForExit();
-                    res.Code = p.ExitCode;
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    res.Code = -1;
-                    res.Err = ex.Message;
-                }
-
-                return res;
-            }, ct);
-        }
-    }
-
-    public class FlashRow : INotifyPropertyChanged
-    {
-        public string Key { get; set; } = "";
-        public string Label { get; set; } = "";
-
-        private string _fp = "";
-        public string FilePath
-        {
-            get => _fp;
-            set
-            {
-                _fp = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? n = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
-    }
-
-    public class ProcessResult
-    {
-        public int Code { get; set; }
-        public string Out { get; set; } = "";
-        public string Err { get; set; } = "";
-    }
-}
+            return parts.Any() ? "ekoflash " + string.Join(" ", parts) : "ekoflash -b -
