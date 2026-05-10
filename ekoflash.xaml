@@ -189,12 +189,12 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- ✅ x:Name مضاف للأزرار الأربعة -->
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="FastbootBtn" Content="FASTBOOT ENGINE" Style="{StaticResource ModeButton}" Width="160" Click="FastbootMode_Click"/>
                         <Button x:Name="OdinBtn"     Content="SAMSUNG ODIN"    Style="{StaticResource ModeButton}" Width="160" Click="OdinMode_Click"/>
                         <Button x:Name="SideloadBtn" Content="ADB SIDELOAD"    Style="{StaticResource ModeButton}" Width="160" Click="SideloadMode_Click"/>
                         <Button x:Name="ToolsBtn"    Content="SYSTEM TOOLS"    Style="{StaticResource ModeButton}" Width="160" Click="ToolsMode_Click"/>
+                        <Button x:Name="BackupBtn"   Content="BACKUP &amp; RESTORE" Style="{StaticResource ModeButton}" Width="170" Click="BackupMode_Click"/>
                     </StackPanel>
 
                     <Border Grid.Column="1" Background="#101B2F" CornerRadius="10" Padding="15,5"
@@ -313,6 +313,150 @@
                                     <Button Content="REBOOT TO DOWNLOAD MODE" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot download"/>
                                     <Button Content="WIPE CACHE PARTITION" Style="{StaticResource ModeButton}" Height="40" Width="Auto" Foreground="{StaticResource DangerBrush}" Click="QuickCmd_Click" Tag="fastboot erase cache"/>
                                 </StackPanel>
+                            </Grid>
+
+                            <!-- ✅ PanelBackup (NEW) -->
+                            <Grid x:Name="PanelBackup" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Text="BACKUP &amp; RESTORE"
+                                           FontSize="18"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           Margin="0,0,0,12"
+                                           FontWeight="Bold"/>
+
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Button x:Name="BackupSubBtn"
+                                            Content="BACKUP"
+                                            Tag="backup"
+                                            Width="130"
+                                            Style="{StaticResource ModeButton}"
+                                            Click="BackupSubTab_Click"/>
+                                    <Button x:Name="RestoreSubBtn"
+                                            Content="RESTORE"
+                                            Tag="restore"
+                                            Width="130"
+                                            Style="{StaticResource ModeButton}"
+                                            Click="BackupSubTab_Click"/>
+                                </StackPanel>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Backup Tab -->
+                                    <Grid x:Name="BackupSubPanel" Visibility="Visible">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <CheckBox x:Name="ChkBackupApk" Content="APK" IsChecked="True" Margin="0,0,20,0"/>
+                                            <CheckBox x:Name="ChkBackupData" Content="Data" IsChecked="True" Margin="0,0,20,0"/>
+                                            <CheckBox x:Name="ChkBackupUserDe" Content="User_DE" Margin="0,0,20,0"/>
+                                            <CheckBox x:Name="ChkBackupObb" Content="OBB"/>
+                                        </StackPanel>
+
+                                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock x:Name="AppListHeader" Text="INSTALLED APPS" VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1" Content="Select All" Style="{StaticResource ModeButton}" Width="90" Click="SelectAllApps_Click"/>
+                                            <Button Grid.Column="2" Content="Clear" Style="{StaticResource ModeButton}" Width="70" Click="ClearApps_Click"/>
+                                            <Button Grid.Column="3" Content="Refresh" Style="{StaticResource ModeButton}" Width="80" Click="RefreshApps_Click"/>
+                                        </Grid>
+
+                                        <ListBox x:Name="AppListBox"
+                                                 Grid.Row="2"
+                                                 SelectionMode="Extended"
+                                                 Background="#0F1A2B"
+                                                 BorderBrush="#2A3F5F"
+                                                 Foreground="#EAF4FF">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding DisplayName}" Foreground="#EAF4FF"/>
+                                                        <TextBlock Text="{Binding PackageName}" Foreground="#88B4D8" FontSize="10"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+
+                                        <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                                            <ProgressBar x:Name="BackupProgress" Height="10" Maximum="100" Value="0"/>
+                                            <TextBlock x:Name="BackupProgressText" Margin="0,6,0,0" Foreground="{StaticResource AccentBrush}" Visibility="Collapsed"/>
+                                        </StackPanel>
+
+                                        <Grid Grid.Row="4" Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="100"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <Button x:Name="StartBackupBtn"
+                                                    Grid.Column="0"
+                                                    Content="START BACKUP"
+                                                    Style="{StaticResource FlashBtn}"
+                                                    Height="40"
+                                                    Margin="0,0,10,0"
+                                                    Click="StartBackup_Click"/>
+
+                                            <Button x:Name="StopBackupBtn"
+                                                    Grid.Column="1"
+                                                    Content="STOP"
+                                                    Style="{StaticResource ModeButton}"
+                                                    Height="40"
+                                                    Click="StopBackup_Click"/>
+                                        </Grid>
+                                    </Grid>
+
+                                    <!-- Restore Tab -->
+                                    <Grid x:Name="RestoreSubPanel" Visibility="Collapsed">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <DataGrid x:Name="BackupListGrid"
+                                                  AutoGenerateColumns="False"
+                                                  IsReadOnly="True"
+                                                  SelectionMode="Single"
+                                                  Margin="0,0,0,8">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="App Name" Binding="{Binding DisplayName}" Width="*"/>
+                                                <DataGridTextColumn Header="Package" Binding="{Binding PackageName}" Width="*"/>
+                                                <DataGridTextColumn Header="Date" Binding="{Binding BackupDate}" Width="180"/>
+                                                <DataGridTemplateColumn Header="Action" Width="100">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Button Content="RESTORE"
+                                                                    Tag="{Binding BackupPath}"
+                                                                    Click="RestoreEntry_Click"
+                                                                    Height="26"/>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+
+                                        <TextBlock x:Name="BackupRootText" Grid.Row="1" Foreground="{StaticResource TextMutedBrush}"/>
+                                    </Grid>
+                                </Grid>
                             </Grid>
                         </Grid>
                     </Border>
