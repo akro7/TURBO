@@ -8,12 +8,11 @@
         Width="1340" Height="860"
         MinWidth="1150" MinHeight="750"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource MainBgBrush}"
+        Background="#050A14"
         Foreground="#EAF4FF"
         FontFamily="Segoe UI Semibold">
 
     <Window.Resources>
-        <!-- Core theme brushes -->
         <SolidColorBrush x:Key="MainBgBrush" Color="#050A14"/>
         <SolidColorBrush x:Key="PanelBrush" Color="#CC0D1B33"/>
         <SolidColorBrush x:Key="BorderBrush" Color="#3352BFFF"/>
@@ -29,8 +28,8 @@
         <SolidColorBrush x:Key="PathBorderBrush" Color="#2A3F5F"/>
         <SolidColorBrush x:Key="TerminalBgBrush" Color="#03070F"/>
         <SolidColorBrush x:Key="HeaderChipBrush" Color="#10182D"/>
-        <SolidColorBrush x:Key="GlowLeftBrush" Color="#1500E5FF"/>
-        <SolidColorBrush x:Key="GlowRightBrush" Color="#155500FF"/>
+        <SolidColorBrush x:Key="GlowLeftBrush" Color="#2200E5FF"/>
+        <SolidColorBrush x:Key="GlowRightBrush" Color="#225500FF"/>
         <SolidColorBrush x:Key="FlashBtnTextBrush" Color="#050A14"/>
         <SolidColorBrush x:Key="TitleBrush" Color="White"/>
 
@@ -119,12 +118,7 @@
         </Style>
 
         <Storyboard x:Key="WindowOnLoad">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.8"/>
-            <ThicknessAnimation Storyboard.TargetProperty="Margin" From="0,40,0,-40" To="0" Duration="0:0:0.6">
-                <ThicknessAnimation.EasingFunction>
-                    <PowerEase Power="5" EasingMode="EaseOut"/>
-                </ThicknessAnimation.EasingFunction>
-            </ThicknessAnimation>
+            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.6"/>
         </Storyboard>
     </Window.Resources>
 
@@ -154,18 +148,16 @@
                     <RowDefinition Height="180"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
                 <Grid Grid.Row="0" Margin="5,0,5,20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="430"/>
+                        <ColumnDefinition Width="460"/>
                     </Grid.ColumnDefinitions>
 
                     <Border Width="70" Height="70" CornerRadius="15"
                             Background="{StaticResource HeaderChipBrush}"
-                            BorderBrush="{StaticResource AccentBrush}" BorderThickness="2"
-                            Margin="0,0,15,0">
+                            BorderBrush="{StaticResource AccentBrush}" BorderThickness="2" Margin="0,0,15,0">
                         <Grid>
                             <TextBlock Text="T" FontSize="36" FontWeight="Black"
                                        Foreground="{StaticResource AccentBrush}"
@@ -178,11 +170,7 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="TURBO FLASH TOOL"
                                    FontSize="42" FontWeight="Black"
-                                   Foreground="{StaticResource TitleBrush}">
-                            <TextBlock.Effect>
-                                <DropShadowEffect BlurRadius="10" Color="#00E5FF" Opacity="0.5" ShadowDepth="0"/>
-                            </TextBlock.Effect>
-                        </TextBlock>
+                                   Foreground="{StaticResource TitleBrush}"/>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Developers: " Foreground="{StaticResource TextMutedBrush}" FontSize="13"/>
                             <TextBlock Text="AHMED YOUNIS &amp; Mohamed Khaled" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="Bold"/>
@@ -216,7 +204,6 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Mode + Status -->
                 <Grid Grid.Row="1" Margin="5,0,5,15">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -242,7 +229,6 @@
                     </Border>
                 </Grid>
 
-                <!-- Main content -->
                 <Grid Grid.Row="2" Margin="5,0,5,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -345,7 +331,6 @@
                         </Grid>
                     </Border>
 
-                    <!-- Right panel -->
                     <StackPanel Grid.Column="1" Margin="15,0,0,0">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button x:Name="TabCmdBtn" Content="COMMANDS" Style="{StaticResource ModeButton}" Width="140" Click="TabCmd_Click"/>
@@ -355,18 +340,16 @@
                         <StackPanel x:Name="TabCmdPanel">
                             <Border Style="{StaticResource GlassPanel}" Height="200" Margin="0,0,0,12">
                                 <Grid>
-                                    <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}"
-                                               FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
+                                    <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
                                     <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True"
-                                             Background="{StaticResource TerminalBgBrush}" BorderThickness="0"
-                                             Foreground="#00FF95" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                             Background="{StaticResource TerminalBgBrush}" BorderThickness="0" Foreground="#00FF95"
+                                             FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                                 </Grid>
                             </Border>
 
                             <Border Style="{StaticResource GlassPanel}">
                                 <StackPanel>
-                                    <TextBlock Text="QUICK ACTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}"
-                                               FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <TextBlock Text="QUICK ACTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,10"/>
                                     <Button Content="REBOOT TO SYSTEM" Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot" Click="QuickCmd_Click"/>
                                     <Button Content="REBOOT BOOTLOADER" Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot bootloader" Click="QuickCmd_Click"/>
                                     <Button Content="ERASE USERDATA" Style="{StaticResource ModeButton}" Width="Auto" Foreground="{StaticResource DangerBrush}" Tag="fastboot erase userdata" Click="QuickCmd_Click"/>
@@ -377,8 +360,7 @@
                         <StackPanel x:Name="TabOptionsPanel" Visibility="Collapsed">
                             <Border Style="{StaticResource GlassPanel}">
                                 <StackPanel>
-                                    <TextBlock Text="FLASH OPTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}"
-                                               FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <TextBlock Text="FLASH OPTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,10"/>
                                     <CheckBox Content="Skip verification" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
                                     <CheckBox Content="Wipe userdata after flash" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
                                     <CheckBox Content="Reboot after flash" Foreground="{StaticResource TextMutedBrush}" IsChecked="True"/>
@@ -388,7 +370,6 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Progress -->
                 <Grid Grid.Row="3" Margin="5,15,5,15">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -396,28 +377,18 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel>
-                        <TextBlock x:Name="ProgressStatusText" Text="Ready to Process..."
-                                   Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,0,0,5"/>
-                        <ProgressBar x:Name="MainProgress" Height="12"
-                                     Background="{StaticResource HeaderChipBrush}"
-                                     Foreground="{StaticResource AccentBrush}" BorderThickness="0">
-                            <ProgressBar.Effect>
-                                <BlurEffect Radius="2" RenderingBias="Quality"/>
-                            </ProgressBar.Effect>
-                        </ProgressBar>
+                        <TextBlock x:Name="ProgressStatusText" Text="Ready to Process..." Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,0,0,5"/>
+                        <ProgressBar x:Name="MainProgress" Height="12" Background="{StaticResource HeaderChipBrush}"
+                                     Foreground="{StaticResource AccentBrush}" BorderThickness="0"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Bottom">
-                        <Button x:Name="FlashAllBtn" Content="START FLASHING" Style="{StaticResource FlashBtn}"
-                                Width="180" Height="40" FontSize="14" Click="FlashAll_Click"/>
-                        <Button x:Name="CancelBtn" Content="STOP" Style="{StaticResource ModeButton}"
-                                Width="90" Height="40" Margin="10,0,0,0" Foreground="{StaticResource DangerBrush}" Click="Cancel_Click"/>
+                        <Button x:Name="FlashAllBtn" Content="START FLASHING" Style="{StaticResource FlashBtn}" Width="180" Height="40" FontSize="14" Click="FlashAll_Click"/>
+                        <Button x:Name="CancelBtn" Content="STOP" Style="{StaticResource ModeButton}" Width="90" Height="40" Margin="10,0,0,0" Foreground="{StaticResource DangerBrush}" Click="Cancel_Click"/>
                     </StackPanel>
                 </Grid>
 
-                <!-- Log -->
-                <Border Grid.Row="4" Margin="5,0,5,5"
-                        Background="{StaticResource TerminalBgBrush}" CornerRadius="10"
+                <Border Grid.Row="4" Margin="5,0,5,5" Background="{StaticResource TerminalBgBrush}" CornerRadius="10"
                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                     <Grid>
                         <TextBlock Text="TURBO TERMINAL OUTPUT" Foreground="{StaticResource BorderBrush}" FontSize="10"
