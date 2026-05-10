@@ -8,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -26,13 +25,6 @@ namespace MKVenomTool
             Sideload,
             Tools
         }
-
-        private static readonly string[] OdinPids =
-        {
-            "6601",
-            "685D",
-            "68C3"
-        };
 
         private FlashMode _mode = FlashMode.Fastboot;
         private readonly ObservableCollection<FlashRow> _fbRows = new();
@@ -67,7 +59,7 @@ namespace MKVenomTool
 
         private void CheckRequirements()
         {
-            AppendLog($"[SYSTEM] ADB : {Chk("platform-tools", "adb")}");
+            AppendLog($"[SYSTEM] ADB      : {Chk("platform-tools", "adb")}");
             AppendLog($"[SYSTEM] Fastboot : {Chk("platform-tools", "fastboot")}");
             AppendLog($"[SYSTEM] ekoflash : {Chk("odin", "ekoflash")}");
         }
@@ -197,6 +189,8 @@ namespace MKVenomTool
             }
         }
 
+        // Device detection with mode-aware command selection.
+        // Odin mode uses ekoflash detect (not adb / not fastboot).
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
             DeviceStatusText.Text = "SCANNING...";
@@ -252,7 +246,6 @@ namespace MKVenomTool
         {
             var result = await RunAsync("platform-tools", "fastboot", "devices");
             var lines = SplitLines(result.Out);
-
             return lines.Any(l => l.Contains("\tfastboot", StringComparison.OrdinalIgnoreCase));
         }
 
@@ -275,73 +268,22 @@ namespace MKVenomTool
 
         private async Task<bool> DetectOdinDownloadModeAsync()
         {
-            // 1) Primary: ekoflash --list
-            var listResult = await RunAsync("odin", "ekoflash", "--list");
-            var listText = $"{listResult.Out}\n{listResult.Err}";
+            var result = await RunAsync("odin", "ekoflash", "detect");
+            var allText = $"{result.Out}\n{result.Err}".ToLowerInvariant();
 
-            if (LooksLikeOdinDeviceFound(listText))
+            if (result.Code == 0)
                 return true;
 
-            if (LooksLikeNoOdinDevice(listText))
+            if (allText.Contains("device detected"))
+                return true;
+
+            if (allText.Contains("failed to detect"))
                 return false;
 
-            // 2) Secondary: ekoflash detect (for builds that still support it)
-            var detectResult = await RunAsync("odin", "ekoflash", "detect");
-            var detectText = $"{detectResult.Out}\n{detectResult.Err}";
-
-            if (LooksLikeOdinDeviceFound(detectText))
-                return true;
-
-            if (LooksLikeNoOdinDevice(detectText))
+            if (allText.Contains("no device"))
                 return false;
-
-            // 3) Final fallback: scan Windows connected PnP devices for Samsung Odin VID/PID
-            return await DetectOdinByPnpUtilAsync();
-        }
-
-        private static bool LooksLikeOdinDeviceFound(string text)
-        {
-            var t = text.ToLowerInvariant();
-
-            if (t.Contains("device detected")) return true;
-            if (t.Contains("detected") && t.Contains("download")) return true;
-            if (t.Contains("odin mode")) return true;
-
-            // Matches patterns like:
-            // VID_04E8&PID_685D
-            // 04e8:685d
-            if (Regex.IsMatch(t, @"vid[_:\s=]*04e8.*pid[_:\s=]*(6601|685d|68c3)", RegexOptions.IgnoreCase))
-                return true;
-
-            if (Regex.IsMatch(t, @"04e8[:\s](6601|685d|68c3)", RegexOptions.IgnoreCase))
-                return true;
 
             return false;
-        }
-
-        private static bool LooksLikeNoOdinDevice(string text)
-        {
-            var t = text.ToLowerInvariant();
-
-            if (t.Contains("no connected devices detected")) return true;
-            if (t.Contains("none of the devices are in odin mode")) return true;
-            if (t.Contains("failed to detect compatible download-mode device")) return true;
-            if (t.Contains("no download-mode device found")) return true;
-            if (t.Contains("no device")) return true;
-
-            return false;
-        }
-
-        private async Task<bool> DetectOdinByPnpUtilAsync()
-        {
-            // Uses built-in Windows pnputil without touching your tool paths.
-            var res = await RunAsync("", "cmd", "/c pnputil /enum-devices /connected");
-            var txt = $"{res.Out}\n{res.Err}".ToUpperInvariant();
-
-            if (!txt.Contains("VID_04E8"))
-                return false;
-
-            return OdinPids.Any(pid => txt.Contains($"PID_{pid}"));
         }
 
         private static IEnumerable<string> SplitLines(string text) =>
@@ -420,7 +362,6 @@ namespace MKVenomTool
         private async Task FlashFastboot(CancellationToken ct)
         {
             var targets = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
-
             if (targets.Count == 0)
             {
                 AppendLog("[!] No files selected.");
@@ -446,7 +387,6 @@ namespace MKVenomTool
         private async Task FlashOdin(CancellationToken ct)
         {
             var targets = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
-
             if (targets.Count == 0)
             {
                 AppendLog("[!] No Odin files selected.");
@@ -536,12 +476,11 @@ namespace MKVenomTool
 
             if (cmd == "zadig")
             {
-                // Keep original extracted path mapping (folder is "zadig" in ToolsManager).
-                string path = ToolsManager.GetExePath("zadig", "zadig");
+                string path = ToolsManager.GetExePath("tools", "zadig");
                 if (File.Exists(path))
                     Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
                 else
-                    AppendLog("[!] zadig.exe not found in zadig\\");
+                    AppendLog("[!] zadig.exe not found in tools\\");
                 return;
             }
 
@@ -653,7 +592,6 @@ namespace MKVenomTool
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
-
         protected void OnPropertyChanged([CallerMemberName] string? n = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
     }
