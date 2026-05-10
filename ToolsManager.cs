@@ -3,23 +3,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 
 namespace MKVenomTool
 {
-    /// <summary>
-    /// TURBO FLASH TOOL - Tools Management Engine
-    /// Managed by: AHMED YOUNIS & Mohamed Khaled
-    /// </summary>
     public static class ToolsManager
     {
-        // تغيير المسار إلى TurboFlashTool ليناسب الهوية الجديدة
-        public static readonly string ToolsRoot =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TurboFlashTool", "bin");
+        public static readonly string ToolsRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "EkoFlashTool",
+            "bin");
 
         private static bool _extracted;
+        private static readonly object Sync = new();
 
-        // خريطة الموارد: تربط المورد الداخلي بالمسار والمجلد المطلوب
-        private static readonly Dictionary<string, (string folder, string fileName)> ResourceMapping = new()
+        private static readonly Dictionary<string, (string Folder, string FileName)> ResourceMapping = new()
         {
             ["res.pt.adb.exe"] = ("platform-tools", "adb.exe"),
             ["res.pt.fastboot.exe"] = ("platform-tools", "fastboot.exe"),
@@ -35,15 +33,16 @@ namespace MKVenomTool
         public static string EkoFlashExe => GetExePath("odin", "ekoflash");
         public static string ZadigExe => GetExePath("zadig", "zadig");
 
-        /// <summary>
-        /// التأكد من استخراج جميع الأدوات اللازمة للعمل
-        /// </summary>
         public static void EnsureExtracted()
         {
-            if (_extracted) return;
+            if (_extracted)
+                return;
 
-            try
+            lock (Sync)
             {
+                if (_extracted)
+                    return;
+
                 var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
                 var resourceNames = asm.GetManifestResourceNames();
 
@@ -52,56 +51,101 @@ namespace MKVenomTool
                     string resourceKey = entry.Key;
                     var (folder, fileName) = entry.Value;
 
-                    // تحديد المسار الكامل للمجلد والملف
                     string targetFolder = Path.Combine(ToolsRoot, folder);
                     string targetPath = Path.Combine(targetFolder, fileName);
 
-                    // إنشاء المجلد إذا لم يكن موجوداً
-                    if (!Directory.Exists(targetFolder))
-                        Directory.CreateDirectory(targetFolder);
+                    Directory.CreateDirectory(targetFolder);
 
-                    // استخراج الملف فقط إذا كان غير موجود (لتوفير الوقت)
-                    if (!File.Exists(targetPath))
+                    if (File.Exists(targetPath))
                     {
-                        var fullResourceName = resourceNames.FirstOrDefault(n =>
-                            n.Equals(resourceKey, StringComparison.OrdinalIgnoreCase) ||
-                            n.EndsWith("." + resourceKey, StringComparison.OrdinalIgnoreCase));
-
-                        if (fullResourceName != null)
+                        try
                         {
-                            using var stream = asm.GetManifestResourceStream(fullResourceName);
-                            if (stream != null)
-                            {
-                                using var fs = File.Create(targetPath);
-                                stream.CopyTo(fs);
-                            }
+                            var fi = new FileInfo(targetPath);
+                            if (fi.Length > 0)
+                                continue;
+                        }
+                        catch
+                        {
                         }
                     }
+
+                    string? fullResourceName = resourceNames.FirstOrDefault(n =>
+                        n.Equals(resourceKey, StringComparison.OrdinalIgnoreCase) ||
+                        n.EndsWith("." + resourceKey, StringComparison.OrdinalIgnoreCase));
+
+                    if (fullResourceName == null)
+                        continue;
+
+                    ExtractWithRetry(asm, fullResourceName, targetPath);
                 }
 
                 _extracted = true;
             }
-            catch (Exception ex)
+        }
+
+        private static void ExtractWithRetry(Assembly asm, string resourceName, string targetPath)
+        {
+            const int maxAttempts = 6;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                // إرسال الخطأ لـ CrashLog (تأكد من وجود هذه الدالة في App.xaml.cs)
-                App.CrashLog("ToolsManager.EnsureExtracted", $"Critical failure in extracting core tools: {ex.Message}");
+                string tempPath = targetPath + ".tmp";
+
+                try
+                {
+                    using (var stream = asm.GetManifestResourceStream(resourceName))
+                    {
+                        if (stream == null)
+                            throw new IOException($"Embedded resource not found: {resourceName}");
+
+                        if (File.Exists(tempPath))
+                            File.Delete(tempPath);
+
+                        using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            stream.CopyTo(fs);
+                        }
+                    }
+
+                    if (File.Exists(targetPath))
+                        File.Delete(targetPath);
+
+                    File.Move(tempPath, targetPath);
+                    return;
+                }
+                catch (IOException)
+                {
+                    if (File.Exists(targetPath))
+                        return;
+
+                    if (attempt == maxAttempts)
+                        throw;
+
+                    Thread.Sleep(220 * attempt);
+                }
+                finally
+                {
+                    try
+                    {
+                        if (File.Exists(tempPath))
+                            File.Delete(tempPath);
+                    }
+                    catch
+                    {
+                    }
+                }
             }
         }
 
-        /// <summary>
-        /// فحص وجود الأداة في المجلد المخصص لها
-        /// </summary>
         public static bool ExeExists(string folder, string exeName)
         {
             return File.Exists(GetExePath(folder, exeName));
         }
 
-        /// <summary>
-        /// جلب المسار الكامل لأي أداة مع معالجة الامتدادات تلقائياً
-        /// </summary>
         public static string GetExePath(string folder, string exeName)
         {
-            var cleanName = exeName.Trim();
+            string cleanName = exeName.Trim();
+
             if (!cleanName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
                 !cleanName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
@@ -111,18 +155,18 @@ namespace MKVenomTool
             return Path.Combine(ToolsRoot, folder, cleanName);
         }
 
-        /// <summary>
-        /// مسح جميع الأدوات المستخرجة (في حال الرغبة في التحديث أو الإصلاح)
-        /// </summary>
         public static void ResetTools()
         {
             try
             {
                 if (Directory.Exists(ToolsRoot))
                     Directory.Delete(ToolsRoot, true);
+
                 _extracted = false;
             }
-            catch { /* المجلد قد يكون قيد الاستخدام */ }
+            catch
+            {
+            }
         }
     }
 }
