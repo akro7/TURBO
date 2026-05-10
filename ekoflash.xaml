@@ -9,7 +9,8 @@
         MinWidth="1150" MinHeight="750"
         WindowStartupLocation="CenterScreen"
         Background="#050A14" Foreground="#EAF4FF"
-        FontFamily="Segoe UI Semibold">
+        FontFamily="Segoe UI Semibold"
+        Closing="Window_Closing">
 
     <Window.Resources>
         <SolidColorBrush x:Key="MainBgBrush"     Color="#050A14"/>
@@ -242,7 +243,7 @@
                                     <Button Content="INSTALL ADB DRIVERS (ZADIG)" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="zadig"/>
                                     <Button Content="REBOOT TO RECOVERY" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot recovery"/>
                                     <Button Content="REBOOT TO DOWNLOAD MODE" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot download"/>
-                                    <Button Content="WIPE CACHE PARTITION" Style="{StaticResource ModeButton}" Height="40" Width="Auto" Foreground="{StaticResource DangerBrush}" Click="QuickCmd_Click" Tag="fastboot erase cache"/>
+                                    <Button Content="WIPE CACHE PARTITION" Style="{StaticResource ModeButton}" Height="40" Width="Auto" Foreground="{StaticResource DangerBrush}" Click="QuickCmd_Click" Tag="adb shell su -c 'wipe_cache'"/>
                                 </StackPanel>
                             </Grid>
 
@@ -369,30 +370,34 @@
 
                                     <Separator Margin="0,10,0,10"/>
 
-                                    <TextBlock Text="MATERIAL DESIGN UI" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,8"/>
+                                    <TextBlock Text="🎨 MATERIAL DESIGN UI" FontSize="12" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Google Material Style - اختياري" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                                    
                                     <CheckBox x:Name="MaterialModeCheck"
-                                              Content="Enable Google Material Style"
+                                              Content="✓ تفعيل Material Design"
                                               Click="MaterialModeToggle_Click"
-                                              Margin="0,0,0,10"/>
+                                              Foreground="{StaticResource SuccessBrush}"
+                                              FontWeight="Bold"
+                                              Margin="0,0,0,12"/>
 
-                                    <TextBlock Text="Primary (Hex)" FontSize="11"/>
+                                    <TextBlock Text="Primary Color (Hex)" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
                                     <TextBox x:Name="MaterialPrimaryBox" Style="{StaticResource PathBox}" Margin="0,4,0,6"/>
 
-                                    <TextBlock Text="Surface (Hex)" FontSize="11"/>
+                                    <TextBlock Text="Surface Color (Hex)" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
                                     <TextBox x:Name="MaterialSurfaceBox" Style="{StaticResource PathBox}" Margin="0,4,0,6"/>
 
-                                    <TextBlock Text="Background (Hex)" FontSize="11"/>
+                                    <TextBlock Text="Background Color (Hex)" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
                                     <TextBox x:Name="MaterialBackgroundBox" Style="{StaticResource PathBox}" Margin="0,4,0,6"/>
 
-                                    <TextBlock Text="OnSurface Text (Hex)" FontSize="11"/>
+                                    <TextBlock Text="Text Color (Hex)" FontSize="10" Foreground="{StaticResource TextMutedBrush}"/>
                                     <TextBox x:Name="MaterialOnSurfaceBox" Style="{StaticResource PathBox}" Margin="0,4,0,10"/>
 
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Content="APPLY MATERIAL COLORS"
+                                        <Button Content="طبّق الألوان"
                                                 Style="{StaticResource FlashBtn}"
                                                 Width="170"
                                                 Click="ApplyMaterialColors_Click"/>
-                                        <Button Content="RESET"
+                                        <Button Content="إعادة تعيين"
                                                 Style="{StaticResource ModeButton}"
                                                 Width="90"
                                                 Margin="8,0,0,0"
