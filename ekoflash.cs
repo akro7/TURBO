@@ -1,407 +1,897 @@
-<Window x:Class="MKVenomTool.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
-        Title="TURBO FLASH TOOL - v1.0"
-        Width="1340" Height="860"
-        MinWidth="1150" MinHeight="750"
-        WindowStartupLocation="CenterScreen"
-        Background="#050A14"
-        Foreground="#EAF4FF"
-        FontFamily="Segoe UI Semibold">
+using Microsoft.Win32;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 
-    <Window.Resources>
-        <SolidColorBrush x:Key="MainBgBrush" Color="#050A14"/>
-        <SolidColorBrush x:Key="PanelBrush" Color="#CC0D1B33"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="#3352BFFF"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#00E5FF"/>
-        <SolidColorBrush x:Key="AccentSoftBrush" Color="#1A00E5FF"/>
-        <SolidColorBrush x:Key="DangerBrush" Color="#FF4C78"/>
-        <SolidColorBrush x:Key="SuccessBrush" Color="#1CE17A"/>
-        <SolidColorBrush x:Key="TextMutedBrush" Color="#88B4D8"/>
-        <SolidColorBrush x:Key="ModeBtnBgBrush" Color="#152033"/>
-        <SolidColorBrush x:Key="ModeBtnHoverBrush" Color="#1F2D47"/>
-        <SolidColorBrush x:Key="PathBgBrush" Color="#0F1A2B"/>
-        <SolidColorBrush x:Key="PathFgBrush" Color="#B2DFFF"/>
-        <SolidColorBrush x:Key="PathBorderBrush" Color="#2A3F5F"/>
-        <SolidColorBrush x:Key="TerminalBgBrush" Color="#03070F"/>
-        <SolidColorBrush x:Key="HeaderChipBrush" Color="#10182D"/>
-        <SolidColorBrush x:Key="GlowLeftBrush" Color="#2200E5FF"/>
-        <SolidColorBrush x:Key="GlowRightBrush" Color="#225500FF"/>
-        <SolidColorBrush x:Key="FlashBtnTextBrush" Color="#050A14"/>
-        <SolidColorBrush x:Key="TitleBrush" Color="White"/>
+namespace MKVenomTool
+{
+    public partial class MainWindow : Window
+    {
+        private enum FlashMode
+        {
+            Fastboot,
+            Odin,
+            Sideload,
+            Tools
+        }
 
-        <Style x:Key="GlassPanel" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource PanelBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
-            <Setter Property="CornerRadius" Value="15"/>
-            <Setter Property="Padding" Value="15"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect BlurRadius="15" Color="#000000" Opacity="0.35" ShadowDepth="2"/>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        private enum ThemeStyle
+        {
+            Neon,
+            LiquidGlass,
+            Material
+        }
 
-        <Style x:Key="PathBox" TargetType="TextBox">
-            <Setter Property="Background" Value="{StaticResource PathBgBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource PathFgBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource PathBorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,5"/>
-            <Setter Property="FontFamily" Value="Consolas"/>
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="2"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        private static readonly Dictionary<string, string> OdinArgMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["BL"] = "-b",
+            ["AP"] = "-a",
+            ["CP"] = "-c",
+            ["CSC"] = "-s",
+            ["USERDATA"] = "-u"
+        };
 
-        <Style x:Key="ModeButton" TargetType="Button">
-            <Setter Property="Foreground" Value="#D6E9FF"/>
-            <Setter Property="Background" Value="{StaticResource ModeBtnBgBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Height" Value="40"/>
-            <Setter Property="Margin" Value="0,0,10,0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                CornerRadius="8"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{StaticResource ModeBtnHoverBrush}"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        private static readonly string[] OdinPids = { "6601", "685D", "68C3", "6860" };
 
-        <Style x:Key="FlashBtn" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource FlashBtnTextBrush}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="btnBorder" CornerRadius="8" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.9"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        private readonly Dictionary<string, Color> _accentMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Blue"] = Color.FromRgb(0x00, 0xE5, 0xFF),
+            ["Purple"] = Color.FromRgb(0xB6, 0x7B, 0xFF),
+            ["Crimson"] = Color.FromRgb(0xFF, 0x00, 0x55),
+            ["Emerald"] = Color.FromRgb(0x21, 0xD1, 0x9F),
+            ["Amber"] = Color.FromRgb(0xFF, 0xB0, 0x20)
+        };
 
-        <Storyboard x:Key="WindowOnLoad">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.6"/>
-        </Storyboard>
-    </Window.Resources>
+        private FlashMode _mode = FlashMode.Fastboot;
+        private ThemeStyle _activeThemeStyle = ThemeStyle.Neon;
+        private string _activeAccent = "Blue";
 
-    <Window.Triggers>
-        <EventTrigger RoutedEvent="Window.Loaded">
-            <BeginStoryboard Storyboard="{StaticResource WindowOnLoad}"/>
-        </EventTrigger>
-    </Window.Triggers>
+        private readonly ObservableCollection<FlashRow> _fbRows = new();
+        private readonly ObservableCollection<FlashRow> _odinRows = new();
 
-    <Grid Background="{StaticResource MainBgBrush}">
-        <Canvas IsHitTestVisible="False">
-            <Ellipse Canvas.Left="-150" Canvas.Top="-150" Width="500" Height="500" Fill="{StaticResource GlowLeftBrush}" Opacity="0.55">
-                <Ellipse.Effect><BlurEffect Radius="120"/></Ellipse.Effect>
-            </Ellipse>
-            <Ellipse Canvas.Right="-100" Canvas.Bottom="-100" Width="450" Height="450" Fill="{StaticResource GlowRightBrush}" Opacity="0.45">
-                <Ellipse.Effect><BlurEffect Radius="150"/></Ellipse.Effect>
-            </Ellipse>
-        </Canvas>
+        private bool _deviceConnected;
+        private bool _deviceChecked;
+        private CancellationTokenSource? _cts;
 
-        <Border Margin="15" Style="{StaticResource GlassPanel}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="180"/>
-                </Grid.RowDefinitions>
+        public MainWindow()
+        {
+            InitializeComponent();
 
-                <Grid Grid.Row="0" Margin="5,0,5,20">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="460"/>
-                    </Grid.ColumnDefinitions>
+            BuildFastbootRows();
+            BuildOdinRows();
 
-                    <Border Width="70" Height="70" CornerRadius="15"
-                            Background="{StaticResource HeaderChipBrush}"
-                            BorderBrush="{StaticResource AccentBrush}" BorderThickness="2" Margin="0,0,15,0">
-                        <Grid>
-                            <TextBlock Text="T" FontSize="36" FontWeight="Black"
-                                       Foreground="{StaticResource AccentBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Ellipse Width="50" Height="50" Stroke="{StaticResource AccentBrush}"
-                                     StrokeThickness="1" Opacity="0.3" StrokeDashArray="4 2"/>
-                        </Grid>
-                    </Border>
+            RowsList.ItemsSource = _fbRows;
+            OdinRowsList.ItemsSource = _odinRows;
 
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="TURBO FLASH TOOL"
-                                   FontSize="42" FontWeight="Black"
-                                   Foreground="{StaticResource TitleBrush}"/>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Developers: " Foreground="{StaticResource TextMutedBrush}" FontSize="13"/>
-                            <TextBlock Text="AHMED YOUNIS &amp; Mohamed Khaled" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="Bold"/>
-                            <TextBlock Text=" | System v2.6.0" Foreground="{StaticResource TextMutedBrush}" FontSize="13" Margin="10,0,0,0"/>
-                        </StackPanel>
-                    </StackPanel>
+            ApplyThemeAccent("Blue");
+            ApplyThemeStyle(ThemeStyle.Neon);
 
-                    <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                        <TextBlock Text="Theme Style" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,2,0,6"/>
+            SwitchMode(FlashMode.Fastboot);
+            ShowTab("cmd");
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Button x:Name="NeonThemeBtn" Content="NEON" Width="100"
-                                    Style="{StaticResource ModeButton}" Margin="0,0,6,0"
-                                    Tag="Neon" Click="ThemeStyle_Click"/>
-                            <Button x:Name="LiquidThemeBtn" Content="LIQUID GLASS" Width="140"
-                                    Style="{StaticResource ModeButton}" Margin="0,0,6,0"
-                                    Tag="LiquidGlass" Click="ThemeStyle_Click"/>
-                            <Button x:Name="MaterialThemeBtn" Content="MATERIAL" Width="120"
-                                    Style="{StaticResource ModeButton}"
-                                    Tag="Material" Click="ThemeStyle_Click"/>
-                        </StackPanel>
+            AppendLog("===============================================");
+            AppendLog(" TURBO FLASH TOOL v1.0 READY");
+            AppendLog(" Developed by: AHMED YOUNIS & Mohamed Khaled");
+            AppendLog("===============================================");
 
-                        <TextBlock Text="Accent Colors" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,0,0,4"/>
-                        <StackPanel Orientation="Horizontal">
-                            <Button Width="24" Height="24" Background="#00E5FF" BorderBrush="#FFFFFF50" BorderThickness="1" Cursor="Hand" Tag="Blue" Click="Swatch_Click" Margin="0,0,6,0"/>
-                            <Button Width="24" Height="24" Background="#B67BFF" BorderBrush="#FFFFFF50" BorderThickness="1" Cursor="Hand" Tag="Purple" Click="Swatch_Click" Margin="0,0,6,0"/>
-                            <Button Width="24" Height="24" Background="#FF0055" BorderBrush="#FFFFFF50" BorderThickness="1" Cursor="Hand" Tag="Crimson" Click="Swatch_Click" Margin="0,0,6,0"/>
-                            <Button Width="24" Height="24" Background="#21D19F" BorderBrush="#FFFFFF50" BorderThickness="1" Cursor="Hand" Tag="Emerald" Click="Swatch_Click" Margin="0,0,6,0"/>
-                            <Button Width="24" Height="24" Background="#FFB020" BorderBrush="#FFFFFF50" BorderThickness="1" Cursor="Hand" Tag="Amber" Click="Swatch_Click"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
+            CheckRequirements();
+            UpdateCommandPreview();
+        }
 
-                <Grid Grid.Row="1" Margin="5,0,5,15">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+        private void CheckRequirements()
+        {
+            AppendLog($"[SYSTEM] ADB : {Chk("platform-tools", "adb")}");
+            AppendLog($"[SYSTEM] Fastboot : {Chk("platform-tools", "fastboot")}");
+            AppendLog($"[SYSTEM] ekoflash : {Chk("odin", "ekoflash")}");
+        }
 
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="FastbootBtn" Content="FASTBOOT ENGINE" Style="{StaticResource ModeButton}" Width="160" Click="FastbootMode_Click"/>
-                        <Button x:Name="OdinBtn" Content="SAMSUNG ODIN" Style="{StaticResource ModeButton}" Width="160" Click="OdinMode_Click"/>
-                        <Button x:Name="SideloadBtn" Content="ADB SIDELOAD" Style="{StaticResource ModeButton}" Width="160" Click="SideloadMode_Click"/>
-                        <Button x:Name="ToolsBtn" Content="SYSTEM TOOLS" Style="{StaticResource ModeButton}" Width="160" Click="ToolsMode_Click"/>
-                    </StackPanel>
+        private static string Chk(string dir, string exe) =>
+            ToolsManager.ExeExists(dir, exe) ? "OK" : "MISSING";
 
-                    <Border Grid.Column="1" Background="{StaticResource HeaderChipBrush}" CornerRadius="10" Padding="15,5"
-                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-                        <StackPanel Orientation="Horizontal">
-                            <StackPanel VerticalAlignment="Center" Margin="0,0,15,0">
-                                <TextBlock Text="DEVICE CONNECTIVITY" Foreground="{StaticResource TextMutedBrush}" FontSize="10" FontWeight="Bold"/>
-                                <TextBlock x:Name="DeviceStatusText" Text="DISCONNECTED" Foreground="{StaticResource DangerBrush}" FontSize="12" FontWeight="Black"/>
-                            </StackPanel>
-                            <Button Content="SCAN DEVICE" Style="{StaticResource FlashBtn}" Width="110" Height="32" Click="DetectDevice_Click"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+        private void Swatch_Click(object s, RoutedEventArgs e)
+        {
+            if (s is Button b && b.Tag is string accentName)
+            {
+                ApplyThemeAccent(accentName);
+                AppendLog($"[THEME] Accent -> {accentName}");
+            }
+        }
 
-                <Grid Grid.Row="2" Margin="5,0,5,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="320"/>
-                    </Grid.ColumnDefinitions>
+        private void ThemeStyle_Click(object s, RoutedEventArgs e)
+        {
+            if (s is not Button b || b.Tag is not string styleTag)
+                return;
 
-                    <Border Style="{StaticResource GlassPanel}">
-                        <Grid>
-                            <Grid x:Name="PanelFastboot" Visibility="Visible">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="FLASH PARTITION MANAGER" FontSize="18"
-                                           Foreground="{StaticResource AccentBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl x:Name="RowsList">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Margin="0,0,0,10">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="110"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="90"/>
-                                                        <ColumnDefinition Width="80"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}" FontSize="12"/>
-                                                    <TextBox Grid.Column="1" Style="{StaticResource PathBox}" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <Button Grid.Column="2" Content="BROWSE" Style="{StaticResource ModeButton}" Margin="5,0" Click="Browse_Click" Tag="{Binding Key}"/>
-                                                    <Button Grid.Column="3" Content="FLASH" Style="{StaticResource FlashBtn}" Click="FlashOne_Click" Tag="{Binding Key}"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </Grid>
+            if (!Enum.TryParse(styleTag, true, out ThemeStyle parsed))
+                return;
 
-                            <Grid x:Name="PanelOdin" Visibility="Collapsed">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="SAMSUNG ODIN FLASHER" FontSize="18"
-                                           Foreground="{StaticResource AccentBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl x:Name="OdinRowsList">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Margin="0,0,0,10">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="110"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="90"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}" FontSize="12"/>
-                                                    <TextBox Grid.Column="1" Style="{StaticResource PathBox}" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <Button Grid.Column="2" Content="BROWSE" Style="{StaticResource ModeButton}" Margin="5,0" Click="Browse_Click" Tag="{Binding Key}"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </Grid>
+            ApplyThemeStyle(parsed);
+            AppendLog($"[THEME] Style -> {parsed}");
+        }
 
-                            <Grid x:Name="PanelSideload" Visibility="Collapsed">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="ADB SIDELOAD" FontSize="18"
-                                           Foreground="{StaticResource SuccessBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
-                                <StackPanel Grid.Row="1" VerticalAlignment="Top">
-                                    <TextBlock Text="Select ZIP file to sideload:" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,8"/>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="100"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="SideloadPathBox" Style="{StaticResource PathBox}"/>
-                                        <Button Grid.Column="1" Content="BROWSE" Style="{StaticResource ModeButton}" Margin="5,0,0,0" Click="Browse_Click" Tag="sideload"/>
-                                    </Grid>
-                                    <Button Content="START SIDELOAD" Style="{StaticResource FlashBtn}" Height="40" Margin="0,15,0,0" Click="FlashAll_Click"/>
-                                </StackPanel>
-                            </Grid>
+        private void ApplyThemeAccent(string accentName)
+        {
+            if (!_accentMap.ContainsKey(accentName))
+                accentName = "Blue";
 
-                            <Grid x:Name="PanelTools" Visibility="Collapsed">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="SYSTEM TOOLS" FontSize="18"
-                                           Foreground="{StaticResource DangerBrush}" Margin="0,0,0,15" FontWeight="Bold"/>
-                                <StackPanel Grid.Row="1">
-                                    <Button Content="INSTALL ADB DRIVERS (ZADIG)" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="zadig"/>
-                                    <Button Content="REBOOT TO RECOVERY" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot recovery"/>
-                                    <Button Content="REBOOT TO DOWNLOAD MODE" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot download"/>
-                                    <Button Content="WIPE CACHE PARTITION" Style="{StaticResource ModeButton}" Height="40" Width="Auto" Foreground="{StaticResource DangerBrush}" Click="QuickCmd_Click" Tag="fastboot erase cache"/>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-                    </Border>
+            _activeAccent = accentName;
+            ApplyResolvedTheme();
+        }
 
-                    <StackPanel Grid.Column="1" Margin="15,0,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Button x:Name="TabCmdBtn" Content="COMMANDS" Style="{StaticResource ModeButton}" Width="140" Click="TabCmd_Click"/>
-                            <Button x:Name="TabOptBtn" Content="OPTIONS" Style="{StaticResource ModeButton}" Width="140" Click="TabOptions_Click"/>
-                        </StackPanel>
+        private void ApplyThemeStyle(ThemeStyle style)
+        {
+            _activeThemeStyle = style;
+            ApplyResolvedTheme();
+            SetThemeStyleButtonsVisual();
+        }
 
-                        <StackPanel x:Name="TabCmdPanel">
-                            <Border Style="{StaticResource GlassPanel}" Height="200" Margin="0,0,0,12">
-                                <Grid>
-                                    <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
-                                    <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True"
-                                             Background="{StaticResource TerminalBgBrush}" BorderThickness="0" Foreground="#00FF95"
-                                             FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
-                                </Grid>
-                            </Border>
+        private void ApplyResolvedTheme()
+        {
+            Color accent = _accentMap.TryGetValue(_activeAccent, out var c) ? c : _accentMap["Blue"];
 
-                            <Border Style="{StaticResource GlassPanel}">
-                                <StackPanel>
-                                    <TextBlock Text="QUICK ACTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,10"/>
-                                    <Button Content="REBOOT TO SYSTEM" Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot" Click="QuickCmd_Click"/>
-                                    <Button Content="REBOOT BOOTLOADER" Style="{StaticResource ModeButton}" Width="Auto" Margin="0,0,0,8" Tag="adb reboot bootloader" Click="QuickCmd_Click"/>
-                                    <Button Content="ERASE USERDATA" Style="{StaticResource ModeButton}" Width="Auto" Foreground="{StaticResource DangerBrush}" Tag="fastboot erase userdata" Click="QuickCmd_Click"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+            switch (_activeThemeStyle)
+            {
+                case ThemeStyle.Neon:
+                    SetBrushColor("MainBgBrush", Color.FromRgb(0x05, 0x0A, 0x14));
+                    SetBrushColor("PanelBrush", Color.FromArgb(0xCC, 0x0D, 0x1B, 0x33));
+                    SetBrushColor("BorderBrush", Color.FromArgb(0x4C, 0x52, 0xBF, 0xFF));
+                    SetBrushColor("TextMutedBrush", Color.FromRgb(0x88, 0xB4, 0xD8));
+                    SetBrushColor("ModeBtnBgBrush", Color.FromRgb(0x15, 0x20, 0x33));
+                    SetBrushColor("ModeBtnHoverBrush", Color.FromRgb(0x1F, 0x2D, 0x47));
+                    SetBrushColor("PathBgBrush", Color.FromRgb(0x0F, 0x1A, 0x2B));
+                    SetBrushColor("PathFgBrush", Color.FromRgb(0xB2, 0xDF, 0xFF));
+                    SetBrushColor("PathBorderBrush", Color.FromRgb(0x2A, 0x3F, 0x5F));
+                    SetBrushColor("TerminalBgBrush", Color.FromRgb(0x03, 0x07, 0x0F));
+                    SetBrushColor("HeaderChipBrush", Color.FromRgb(0x10, 0x18, 0x2D));
+                    SetBrushColor("GlowLeftBrush", Color.FromArgb(0x30, accent.R, accent.G, accent.B));
+                    SetBrushColor("GlowRightBrush", Color.FromArgb(0x2A, 0x55, 0x00, 0xFF));
+                    SetBrushColor("FlashBtnTextBrush", Color.FromRgb(0x05, 0x0A, 0x14));
+                    SetBrushColor("TitleBrush", Colors.White);
+                    break;
 
-                        <StackPanel x:Name="TabOptionsPanel" Visibility="Collapsed">
-                            <Border Style="{StaticResource GlassPanel}">
-                                <StackPanel>
-                                    <TextBlock Text="FLASH OPTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,10"/>
-                                    <CheckBox Content="Skip verification" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
-                                    <CheckBox Content="Wipe userdata after flash" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
-                                    <CheckBox Content="Reboot after flash" Foreground="{StaticResource TextMutedBrush}" IsChecked="True"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
+                case ThemeStyle.LiquidGlass:
+                    SetBrushColor("MainBgBrush", Color.FromRgb(0x0C, 0x12, 0x1C));
+                    SetBrushColor("PanelBrush", Color.FromArgb(0xB8, 0xF4, 0xF7, 0xFC));
+                    SetBrushColor("BorderBrush", Color.FromArgb(0x90, 0xFF, 0xFF, 0xFF));
+                    SetBrushColor("TextMutedBrush", Color.FromRgb(0x4B, 0x5D, 0x78));
+                    SetBrushColor("ModeBtnBgBrush", Color.FromArgb(0xD5, 0xE8, 0xEE, 0xF7));
+                    SetBrushColor("ModeBtnHoverBrush", Color.FromArgb(0xF0, 0xFF, 0xFF, 0xFF));
+                    SetBrushColor("PathBgBrush", Color.FromArgb(0xE8, 0xF6, 0xFA, 0xFF));
+                    SetBrushColor("PathFgBrush", Color.FromRgb(0x1A, 0x2A, 0x42));
+                    SetBrushColor("PathBorderBrush", Color.FromArgb(0x9C, 0xA9, 0xC2, 0xE3));
+                    SetBrushColor("TerminalBgBrush", Color.FromArgb(0xD5, 0x0A, 0x13, 0x22));
+                    SetBrushColor("HeaderChipBrush", Color.FromArgb(0xA0, 0xEC, 0xF4, 0xFF));
+                    SetBrushColor("GlowLeftBrush", Color.FromArgb(0x1D, accent.R, accent.G, accent.B));
+                    SetBrushColor("GlowRightBrush", Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
+                    SetBrushColor("FlashBtnTextBrush", Colors.White);
+                    SetBrushColor("TitleBrush", Color.FromRgb(0xF4, 0xFA, 0xFF));
+                    break;
 
-                <Grid Grid.Row="3" Margin="5,15,5,15">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                case ThemeStyle.Material:
+                    SetBrushColor("MainBgBrush", Color.FromRgb(0x12, 0x15, 0x1B));
+                    SetBrushColor("PanelBrush", Color.FromRgb(0x1B, 0x1F, 0x28));
+                    SetBrushColor("BorderBrush", Color.FromRgb(0x2A, 0x32, 0x43));
+                    SetBrushColor("TextMutedBrush", Color.FromRgb(0x9B, 0xA8, 0xC0));
+                    SetBrushColor("ModeBtnBgBrush", Color.FromRgb(0x23, 0x29, 0x36));
+                    SetBrushColor("ModeBtnHoverBrush", Color.FromRgb(0x2E, 0x36, 0x46));
+                    SetBrushColor("PathBgBrush", Color.FromRgb(0x17, 0x1D, 0x28));
+                    SetBrushColor("PathFgBrush", Color.FromRgb(0xD8, 0xE5, 0xFF));
+                    SetBrushColor("PathBorderBrush", Color.FromRgb(0x30, 0x39, 0x4B));
+                    SetBrushColor("TerminalBgBrush", Color.FromRgb(0x0E, 0x12, 0x1A));
+                    SetBrushColor("HeaderChipBrush", Color.FromRgb(0x24, 0x2A, 0x37));
+                    SetBrushColor("GlowLeftBrush", Color.FromArgb(0x20, accent.R, accent.G, accent.B));
+                    SetBrushColor("GlowRightBrush", Color.FromArgb(0x08, 0xFF, 0xFF, 0xFF));
+                    SetBrushColor("FlashBtnTextBrush", Colors.Black);
+                    SetBrushColor("TitleBrush", Color.FromRgb(0xF5, 0xF8, 0xFF));
+                    break;
+            }
 
-                    <StackPanel>
-                        <TextBlock x:Name="ProgressStatusText" Text="Ready to Process..." Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,0,0,5"/>
-                        <ProgressBar x:Name="MainProgress" Height="12" Background="{StaticResource HeaderChipBrush}"
-                                     Foreground="{StaticResource AccentBrush}" BorderThickness="0"/>
-                    </StackPanel>
+            byte softAlpha = _activeThemeStyle == ThemeStyle.Material ? (byte)0x26 : (byte)0x33;
+            SetBrushColor("AccentBrush", accent);
+            SetBrushColor("AccentSoftBrush", Color.FromArgb(softAlpha, accent.R, accent.G, accent.B));
+            SetBrushColor("SuccessBrush", Color.FromRgb(0x1C, 0xE1, 0x7A));
+            SetBrushColor("DangerBrush", Color.FromRgb(0xFF, 0x4C, 0x78));
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Bottom">
-                        <Button x:Name="FlashAllBtn" Content="START FLASHING" Style="{StaticResource FlashBtn}" Width="180" Height="40" FontSize="14" Click="FlashAll_Click"/>
-                        <Button x:Name="CancelBtn" Content="STOP" Style="{StaticResource ModeButton}" Width="90" Height="40" Margin="10,0,0,0" Foreground="{StaticResource DangerBrush}" Click="Cancel_Click"/>
-                    </StackPanel>
-                </Grid>
+            if (Resources["MainBgBrush"] is Brush rootBg)
+                Background = rootBg;
 
-                <Border Grid.Row="4" Margin="5,0,5,5" Background="{StaticResource TerminalBgBrush}" CornerRadius="10"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-                    <Grid>
-                        <TextBlock Text="TURBO TERMINAL OUTPUT" Foreground="{StaticResource BorderBrush}" FontSize="10"
-                                   FontWeight="Bold" Margin="10,5" VerticalAlignment="Top" HorizontalAlignment="Right"/>
-                        <TextBox x:Name="LogBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
-                                 Background="Transparent" Foreground="#D7F1FF" BorderThickness="0"
-                                 FontFamily="Consolas" FontSize="12" Padding="12" AcceptsReturn="True"/>
-                    </Grid>
-                </Border>
-            </Grid>
-        </Border>
-    </Grid>
-</Window>
+            SetModeButtonVisual();
+        }
+
+        private void SetBrushColor(string key, Color color)
+        {
+            if (Resources[key] is SolidColorBrush brush)
+                brush.Color = color;
+            else
+                Resources[key] = new SolidColorBrush(color);
+        }
+
+        private void SetThemeStyleButtonsVisual()
+        {
+            if (NeonThemeBtn == null || LiquidThemeBtn == null || MaterialThemeBtn == null)
+                return;
+
+            Brush active = (Brush)Resources["AccentSoftBrush"];
+            var inactive = new SolidColorBrush(Color.FromArgb(0x20, 0x20, 0x20, 0x20));
+
+            NeonThemeBtn.Background = _activeThemeStyle == ThemeStyle.Neon ? active : inactive;
+            LiquidThemeBtn.Background = _activeThemeStyle == ThemeStyle.LiquidGlass ? active : inactive;
+            MaterialThemeBtn.Background = _activeThemeStyle == ThemeStyle.Material ? active : inactive;
+        }
+
+        private void ShowTab(string tab)
+        {
+            TabCmdPanel.Visibility = tab == "cmd" ? Visibility.Visible : Visibility.Collapsed;
+            TabOptionsPanel.Visibility = tab == "options" ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
+        private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
+
+        private void SwitchMode(FlashMode mode)
+        {
+            _mode = mode;
+            _deviceChecked = false;
+            _deviceConnected = false;
+
+            PanelFastboot.Visibility = mode == FlashMode.Fastboot ? Visibility.Visible : Visibility.Collapsed;
+            PanelOdin.Visibility = mode == FlashMode.Odin ? Visibility.Visible : Visibility.Collapsed;
+            PanelSideload.Visibility = mode == FlashMode.Sideload ? Visibility.Visible : Visibility.Collapsed;
+            PanelTools.Visibility = mode == FlashMode.Tools ? Visibility.Visible : Visibility.Collapsed;
+
+            DeviceStatusText.Text = "NOT CHECKED";
+            DeviceStatusText.Foreground = Brushes.Gray;
+
+            SetModeButtonVisual();
+            UpdateCommandPreview();
+
+            AppendLog($"[MODE] -> {mode.ToString().ToUpperInvariant()}");
+        }
+
+        private void FastbootMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Fastboot);
+        private void OdinMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Odin);
+        private void SideloadMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Sideload);
+        private void ToolsMode_Click(object s, RoutedEventArgs e) => SwitchMode(FlashMode.Tools);
+
+        private void SetModeButtonVisual()
+        {
+            if (FastbootBtn == null || OdinBtn == null || SideloadBtn == null || ToolsBtn == null)
+                return;
+
+            Brush active = (Brush)Resources["AccentSoftBrush"];
+            Brush inactive = (Brush)Resources["ModeBtnBgBrush"];
+
+            FastbootBtn.Background = _mode == FlashMode.Fastboot ? active : inactive;
+            OdinBtn.Background = _mode == FlashMode.Odin ? active : inactive;
+            SideloadBtn.Background = _mode == FlashMode.Sideload ? active : inactive;
+            ToolsBtn.Background = _mode == FlashMode.Tools ? active : inactive;
+        }
+
+        private void BuildFastbootRows()
+        {
+            _fbRows.Clear();
+            foreach (var p in new[] { "boot", "recovery", "system", "vendor", "product", "vbmeta", "userdata" })
+                _fbRows.Add(new FlashRow { Key = p, Label = p.ToUpperInvariant() });
+
+            foreach (var r in _fbRows)
+                r.PropertyChanged += (_, _) => UpdateCommandPreview();
+        }
+
+        private void BuildOdinRows()
+        {
+            _odinRows.Clear();
+            foreach (var s in new[] { "BL", "AP", "CP", "CSC", "USERDATA" })
+                _odinRows.Add(new FlashRow { Key = s, Label = s });
+
+            foreach (var r in _odinRows)
+                r.PropertyChanged += (_, _) => UpdateCommandPreview();
+        }
+
+        private async void DetectDevice_Click(object s, RoutedEventArgs e)
+        {
+            DeviceStatusText.Text = "SCANNING...";
+            DeviceStatusText.Foreground = (Brush)Resources["AccentBrush"];
+
+            bool found = _mode switch
+            {
+                FlashMode.Fastboot => await DetectFastbootAsync(),
+                FlashMode.Odin => await DetectOdinDownloadModeAsync(),
+                FlashMode.Sideload => await DetectAdbAsync(true),
+                _ => await DetectAdbAsync(false)
+            };
+
+            _deviceConnected = found;
+            _deviceChecked = true;
+
+            if (found)
+            {
+                DeviceStatusText.Text = "CONNECTED";
+                DeviceStatusText.Foreground = Brushes.LimeGreen;
+                AppendLog("[OK] Device detected.");
+            }
+            else
+            {
+                DeviceStatusText.Text = "NOT FOUND";
+                DeviceStatusText.Foreground = Brushes.Red;
+                AppendLog(_mode == FlashMode.Odin
+                    ? "[ERR] No download-mode device found. Check Samsung driver / cable / USB port."
+                    : "[ERR] No device found. Check cable / drivers.");
+            }
+        }
+
+        private async Task<bool> DetectFastbootAsync()
+        {
+            var result = await RunAsync("platform-tools", "fastboot", "devices");
+            return SplitLines(result.Out).Any(IsToolDeviceLine);
+        }
+
+        private async Task<bool> DetectAdbAsync(bool allowSideload)
+        {
+            var result = await RunAsync("platform-tools", "adb", "devices");
+
+            foreach (var line in SplitLines(result.Out))
+            {
+                if (!IsToolDeviceLine(line))
+                    continue;
+
+                var state = GetStateFromToolLine(line).ToLowerInvariant();
+
+                if (state == "device" || state == "recovery" || state == "unauthorized")
+                    return true;
+
+                if (allowSideload && state == "sideload")
+                    return true;
+            }
+
+            return false;
+        }
+
+        private async Task<bool> DetectOdinDownloadModeAsync()
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                var listResult = await RunAsync("odin", "ekoflash", "--list");
+                string listText = $"{listResult.Out}\n{listResult.Err}";
+
+                if (LooksLikeOdinDeviceFound(listText))
+                    return true;
+
+                if (listResult.Code == 0 && !LooksLikeNoOdinDevice(listText))
+                    return true;
+
+                await Task.Delay(180);
+            }
+
+            for (int i = 0; i < 2; i++)
+            {
+                var detectResult = await RunAsync("odin", "ekoflash", "detect");
+                string detectText = $"{detectResult.Out}\n{detectResult.Err}";
+
+                if (LooksLikeOdinDeviceFound(detectText))
+                    return true;
+
+                if (detectResult.Code == 0 && !LooksLikeNoOdinDevice(detectText))
+                    return true;
+
+                await Task.Delay(180);
+            }
+
+            return await DetectOdinByPnpUtilAsync();
+        }
+
+        private static bool LooksLikeOdinDeviceFound(string text)
+        {
+            string t = text.ToLowerInvariant();
+
+            if (t.Contains("device detected")) return true;
+            if (t.Contains("odin mode")) return true;
+            if (t.Contains("connected devices")) return true;
+
+            if (Regex.IsMatch(t, @"vid[_:\s=]*04e8.*pid[_:\s=]*(6601|685d|68c3|6860)", RegexOptions.IgnoreCase))
+                return true;
+
+            if (Regex.IsMatch(t, @"04e8[:\s](6601|685d|68c3|6860)", RegexOptions.IgnoreCase))
+                return true;
+
+            return SplitLines(t).Any(IsToolDeviceLine);
+        }
+
+        private static bool LooksLikeNoOdinDevice(string text)
+        {
+            string t = text.ToLowerInvariant();
+
+            if (t.Contains("no connected devices detected")) return true;
+            if (t.Contains("none of the devices are in odin mode")) return true;
+            if (t.Contains("failed to detect compatible download-mode device")) return true;
+            if (t.Contains("no download-mode device found")) return true;
+            if (t.Contains("no device")) return true;
+
+            return false;
+        }
+
+        private async Task<bool> DetectOdinByPnpUtilAsync()
+        {
+            var res = await RunAsync("", "cmd", "/c pnputil /enum-devices /connected");
+            string txt = $"{res.Out}\n{res.Err}".ToUpperInvariant();
+
+            if (!txt.Contains("VID_04E8"))
+                return false;
+
+            return OdinPids.Any(pid => txt.Contains($"PID_{pid}")) || txt.Contains("VID_04E8");
+        }
+
+        private static IEnumerable<string> SplitLines(string text) =>
+            text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+
+        private static bool IsToolDeviceLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
+            string l = line.Trim();
+
+            if (l.StartsWith("List of devices attached", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("Usage:", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("CLI options", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("Notes:", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("-", StringComparison.OrdinalIgnoreCase)) return false;
+
+            var parts = l.Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2;
+        }
+
+        private static string GetStateFromToolLine(string line)
+        {
+            var parts = line.Trim().Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2 ? parts[^1] : string.Empty;
+        }
+
+        private void Browse_Click(object s, RoutedEventArgs e)
+        {
+            if (s is not Button btn)
+                return;
+
+            string key = btn.Tag?.ToString() ?? "";
+
+            if (key == "sideload")
+            {
+                var dlg = new OpenFileDialog { Filter = "ZIP files|*.zip|All files|*.*" };
+                if (dlg.ShowDialog() == true)
+                    SideloadPathBox.Text = dlg.FileName;
+                return;
+            }
+
+            var fbRow = _fbRows.FirstOrDefault(r => r.Key == key);
+            if (fbRow != null)
+            {
+                var dlg = new OpenFileDialog { Filter = "Image files|*.img;*.bin|All files|*.*" };
+                if (dlg.ShowDialog() == true)
+                    fbRow.FilePath = dlg.FileName;
+                return;
+            }
+
+            var odinRow = _odinRows.FirstOrDefault(r => r.Key == key);
+            if (odinRow != null)
+            {
+                var dlg = new OpenFileDialog { Filter = "TAR/MD5 files|*.tar;*.md5;*.tar.md5|All files|*.*" };
+                if (dlg.ShowDialog() == true)
+                    odinRow.FilePath = dlg.FileName;
+            }
+        }
+
+        private async void FlashAll_Click(object s, RoutedEventArgs e)
+        {
+            if (!_deviceChecked)
+            {
+                AppendLog("[!] Scan device first.");
+                return;
+            }
+
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Device not connected.");
+                return;
+            }
+
+            _cts = new CancellationTokenSource();
+            MainProgress.Value = 0;
+            ProgressStatusText.Text = "Flashing...";
+
+            try
+            {
+                bool success = _mode switch
+                {
+                    FlashMode.Fastboot => await FlashFastboot(_cts.Token),
+                    FlashMode.Odin => await FlashOdin(_cts.Token),
+                    FlashMode.Sideload => await FlashSideload(_cts.Token),
+                    _ => false
+                };
+
+                if (success)
+                {
+                    AppendLog("[OK] All operations finished.");
+                    ProgressStatusText.Text = "Done.";
+                    MainProgress.Value = 100;
+                }
+                else
+                {
+                    AppendLog("[ERR] Flash failed.");
+                    ProgressStatusText.Text = "Failed.";
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                AppendLog("[STOP] Cancelled.");
+                ProgressStatusText.Text = "Cancelled.";
+            }
+        }
+
+        private async Task<bool> FlashFastboot(CancellationToken ct)
+        {
+            var targets = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
+            if (targets.Count == 0)
+            {
+                AppendLog("[!] No files selected.");
+                return false;
+            }
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var row = targets[i];
+                if (!File.Exists(row.FilePath))
+                {
+                    AppendLog($"[ERR] File not found: {row.FilePath}");
+                    return false;
+                }
+
+                AppendLog($"[FLASH] {row.Label} <- {row.FilePath}");
+                var res = await RunAsync("platform-tools", "fastboot", $"flash {row.Key} \"{row.FilePath}\"", ct);
+
+                if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
+                if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
+
+                if (res.Code != 0)
+                {
+                    AppendLog($"[ERR] fastboot exit code: {res.Code}");
+                    return false;
+                }
+
+                MainProgress.Value = (double)(i + 1) / targets.Count * 100;
+            }
+
+            return true;
+        }
+
+        private async Task<bool> FlashOdin(CancellationToken ct)
+        {
+            var targets = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
+            if (targets.Count == 0)
+            {
+                AppendLog("[!] No Odin files selected.");
+                return false;
+            }
+
+            var sb = new StringBuilder();
+
+            foreach (var row in targets)
+            {
+                if (!File.Exists(row.FilePath))
+                {
+                    AppendLog($"[ERR] File not found: {row.FilePath}");
+                    return false;
+                }
+
+                if (!OdinArgMap.TryGetValue(row.Key, out var flag))
+                {
+                    AppendLog($"[ERR] Unsupported Odin slot: {row.Key}");
+                    return false;
+                }
+
+                sb.Append(flag).Append(' ').Append('"').Append(row.FilePath).Append("\" ");
+            }
+
+            string args = sb.ToString().Trim();
+            AppendLog($"[ODIN] ekoflash {args}");
+
+            var res = await RunAsync("odin", "ekoflash", args, ct);
+
+            if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
+
+            string combined = $"{res.Out}\n{res.Err}".ToLowerInvariant();
+
+            if (combined.Contains("unknown argument") || combined.Contains("usage:"))
+            {
+                AppendLog("[ERR] ekoflash rejected arguments.");
+                return false;
+            }
+
+            if (combined.Contains("no connected devices detected") ||
+                combined.Contains("none of the devices are in odin mode") ||
+                combined.Contains("not in odin mode"))
+            {
+                AppendLog("[ERR] Device dropped out of Odin mode.");
+                return false;
+            }
+
+            if (res.Code != 0)
+            {
+                AppendLog($"[ERR] ekoflash exit code: {res.Code}");
+                return false;
+            }
+
+            if (combined.Contains("error"))
+            {
+                AppendLog("[ERR] ekoflash reported an error.");
+                return false;
+            }
+
+            MainProgress.Value = 100;
+            return true;
+        }
+
+        private async Task<bool> FlashSideload(CancellationToken ct)
+        {
+            string zip = SideloadPathBox.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(zip))
+            {
+                AppendLog("[!] No ZIP selected.");
+                return false;
+            }
+
+            if (!File.Exists(zip))
+            {
+                AppendLog("[!] File not found.");
+                return false;
+            }
+
+            AppendLog($"[SIDELOAD] {zip}");
+
+            var res = await RunAsync("platform-tools", "adb", $"sideload \"{zip}\"", ct);
+
+            if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
+
+            if (res.Code != 0)
+            {
+                AppendLog($"[ERR] adb sideload exit code: {res.Code}");
+                return false;
+            }
+
+            MainProgress.Value = 100;
+            return true;
+        }
+
+        private async void FlashOne_Click(object s, RoutedEventArgs e)
+        {
+            if (!_deviceChecked)
+            {
+                AppendLog("[!] Scan device first.");
+                return;
+            }
+
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Device not connected.");
+                return;
+            }
+
+            if (s is not Button btn)
+                return;
+
+            string key = btn.Tag?.ToString() ?? "";
+            var row = _fbRows.FirstOrDefault(r => r.Key == key);
+
+            if (row == null || string.IsNullOrWhiteSpace(row.FilePath))
+            {
+                AppendLog($"[!] No file for {key}.");
+                return;
+            }
+
+            if (!File.Exists(row.FilePath))
+            {
+                AppendLog($"[ERR] File not found: {row.FilePath}");
+                return;
+            }
+
+            AppendLog($"[FLASH] {row.Label} <- {row.FilePath}");
+
+            var res = await RunAsync("platform-tools", "fastboot", $"flash {row.Key} \"{row.FilePath}\"");
+
+            if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
+
+            if (res.Code == 0)
+                AppendLog("[OK] Partition flashed.");
+            else
+                AppendLog($"[ERR] fastboot exit code: {res.Code}");
+        }
+
+        private void Cancel_Click(object s, RoutedEventArgs e)
+        {
+            _cts?.Cancel();
+            AppendLog("[STOP] Cancelled by user.");
+        }
+
+        private async void QuickCmd_Click(object s, RoutedEventArgs e)
+        {
+            if (s is not Button btn)
+                return;
+
+            string cmd = btn.Tag?.ToString() ?? "";
+
+            if (cmd == "zadig")
+            {
+                string path = ToolsManager.GetExePath("zadig", "zadig");
+                if (!File.Exists(path))
+                    path = ToolsManager.GetExePath("tools", "zadig");
+
+                if (File.Exists(path))
+                    Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                else
+                    AppendLog("[!] zadig.exe not found in zadig\\ or tools\\");
+                return;
+            }
+
+            string[] parts = cmd.Split(new[] { ' ' }, 2);
+            string exe = parts[0];
+            string args = parts.Length > 1 ? parts[1] : "";
+
+            string dir = exe.Equals("ekoflash", StringComparison.OrdinalIgnoreCase) ? "odin" : "platform-tools";
+
+            AppendLog($"[CMD] {cmd}");
+
+            var res = await RunAsync(dir, exe, args);
+
+            if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
+            if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
+        }
+
+        private void UpdateCommandPreview()
+        {
+            if (CommandPreviewBox == null)
+                return;
+
+            CommandPreviewBox.Text = _mode switch
+            {
+                FlashMode.Fastboot => BuildFastbootPreview(),
+                FlashMode.Odin => BuildOdinPreview(),
+                FlashMode.Sideload => $"adb sideload \"{SideloadPathBox?.Text}\"",
+                _ => "Select a mode above."
+            };
+        }
+
+        private string BuildFastbootPreview()
+        {
+            var lines = _fbRows
+                .Where(r => !string.IsNullOrWhiteSpace(r.FilePath))
+                .Select(r => $"fastboot flash {r.Key} \"{r.FilePath}\"");
+
+            return lines.Any() ? string.Join("\n", lines) : "fastboot flash";
+        }
+
+        private string BuildOdinPreview()
+        {
+            var parts = _odinRows
+                .Where(r => !string.IsNullOrWhiteSpace(r.FilePath))
+                .Select(r =>
+                {
+                    var flag = OdinArgMap.TryGetValue(r.Key, out var f) ? f : "?";
+                    return $"{flag} \"{r.FilePath}\"";
+                });
+
+            return parts.Any() ? "ekoflash " + string.Join(" ", parts) : "ekoflash -b -a -c -s -u ...";
+        }
+
+        private void AppendLog(string msg)
+        {
+            try
+            {
+                if (Dispatcher.CheckAccess())
+                {
+                    if (LogBox != null)
+                    {
+                        LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
+                        LogBox.ScrollToEnd();
+                    }
+
+                    if (ProgressStatusText != null)
+                        ProgressStatusText.Text = msg;
+                }
+                else
+                {
+                    Dispatcher.BeginInvoke(new Action(() => AppendLog(msg)));
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private Task<ProcessResult> RunAsync(string dir, string exe, string args, CancellationToken ct = default)
+        {
+            return Task.Run(() =>
+            {
+                var res = new ProcessResult();
+
+                try
+                {
+                    string path = !string.IsNullOrWhiteSpace(dir) ? ToolsManager.GetExePath(dir, exe) : exe;
+                    if (!File.Exists(path))
+                        path = exe;
+
+                    var psi = new ProcessStartInfo(path, args)
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    };
+
+                    using var p = Process.Start(psi)!;
+                    res.Out = p.StandardOutput.ReadToEnd();
+                    res.Err = p.StandardError.ReadToEnd();
+                    p.WaitForExit();
+                    res.Code = p.ExitCode;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    res.Code = -1;
+                    res.Err = ex.Message;
+                }
+
+                return res;
+            }, ct);
+        }
+    }
+
+    public class FlashRow : INotifyPropertyChanged
+    {
+        public string Key { get; set; } = "";
+        public string Label { get; set; } = "";
+
+        private string _fp = "";
+        public string FilePath
+        {
+            get => _fp;
+            set
+            {
+                _fp = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string? n = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+    }
+
+    public class ProcessResult
+    {
+        public int Code { get; set; }
+        public string Out { get; set; } = "";
+        public string Err { get; set; } = "";
+    }
+}
