@@ -50,16 +50,11 @@ namespace MKVenomTool
         private CancellationTokenSource? _backupCts;
         private string _backupTab = "backup";
 
-        private bool _materialMode;
-        private string _classicTheme = "Blue";
-
         public MainWindow()
         {
             InitializeComponent();
 
-            InitializeMaterialInputs();
             ApplyTheme("Blue");
-
             BuildFastbootRows();
             BuildOdinRows();
 
@@ -71,19 +66,11 @@ namespace MKVenomTool
 
             AppendLog("===============================================");
             AppendLog(" TURBO FLASH TOOL v1.0 READY");
-            AppendLog(" Developed by: AHMED YOUNIS & Mohamed Khaled");
+            AppendLog(" Developed by: AHMED YOUNIS @A_KOJ0 and MK VENOM PRO @MkProMVP");
             AppendLog("===============================================");
 
             CheckRequirements();
             UpdateCommandPreview();
-        }
-
-        private void InitializeMaterialInputs()
-        {
-            MaterialPrimaryBox.Text = "#6750A4";
-            MaterialSurfaceBox.Text = "#FFFBFE";
-            MaterialBackgroundBox.Text = "#F3EDF7";
-            MaterialOnSurfaceBox.Text = "#1D1B20";
         }
 
         private void CheckRequirements()
@@ -100,164 +87,82 @@ namespace MKVenomTool
         {
             if (s is Button b && b.Tag is string name)
             {
-                if (_materialMode)
-                {
-                    Color p = name switch
-                    {
-                        "Blue" => Color.FromRgb(0x67, 0x50, 0xA4),
-                        "Purple" => Color.FromRgb(0x7D, 0x52, 0xA1),
-                        "Crimson" => Color.FromRgb(0xB3, 0x26, 0x1E),
-                        _ => Color.FromRgb(0x67, 0x50, 0xA4)
-                    };
-                    MaterialPrimaryBox.Text = ToHex(p);
-                    ApplyMaterialFromInputs();
-                }
-                else
-                {
-                    ApplyTheme(name);
-                    AppendLog($"[THEME] Switched to {name}");
-                }
+                ApplyTheme(name);
+                AppendLog($"[THEME] Switched to {name}");
             }
         }
 
         private void ApplyTheme(string theme)
         {
-            _classicTheme = theme;
-            _materialMode = false;
-            if (MaterialModeCheck != null) MaterialModeCheck.IsChecked = false;
-
-            var map = new Dictionary<string, (Color Ac, Color AS, Color Bo, Color Pa, Color Bg, Color Mute)>
+            var map = new Dictionary<string, (Color Ac, Color AS, Color Bo, Color Pa)>
             {
-                ["Blue"] = (Color.FromRgb(0x00, 0xE5, 0xFF), Color.FromArgb(0x33,0x00,0xE5,0xFF), Color.FromArgb(0x4C,0x52,0xBF,0xFF), Color.FromArgb(0xCC,0x0D,0x1B,0x33), Color.FromRgb(0x05,0x0A,0x14), Color.FromRgb(0x88,0xB4,0xD8)),
-                ["Purple"] = (Color.FromRgb(0xB6, 0x7B, 0xFF), Color.FromArgb(0x33,0xB6,0x7B,0xFF), Color.FromArgb(0x4C,0xB1,0x86,0xFF), Color.FromArgb(0xCC,0x17,0x12,0x3A), Color.FromRgb(0x09,0x07,0x14), Color.FromRgb(0xA9,0x99,0xD8)),
-                ["Crimson"] = (Color.FromRgb(0xFF, 0x00, 0x55), Color.FromArgb(0x33,0xFF,0x00,0x55), Color.FromArgb(0x4C,0xFF,0x91,0xC2), Color.FromArgb(0xCC,0x20,0x0E,0x24), Color.FromRgb(0x12,0x06,0x11), Color.FromRgb(0xD8,0x99,0xB6))
+                ["Blue"] =
+                (
+                    Color.FromRgb(0x00, 0xE5, 0xFF),
+                    Color.FromArgb(0x33, 0x00, 0xE5, 0xFF),
+                    Color.FromArgb(0x4C, 0x52, 0xBF, 0xFF),
+                    Color.FromArgb(0xCC, 0x0D, 0x1B, 0x33)
+                ),
+                ["Purple"] =
+                (
+                    Color.FromRgb(0xB6, 0x7B, 0xFF),
+                    Color.FromArgb(0x33, 0xB6, 0x7B, 0xFF),
+                    Color.FromArgb(0x4C, 0xB1, 0x86, 0xFF),
+                    Color.FromArgb(0xCC, 0x17, 0x12, 0x3A)
+                ),
+                ["Crimson"] =
+                (
+                    Color.FromRgb(0xFF, 0x00, 0x55),
+                    Color.FromArgb(0x33, 0xFF, 0x00, 0x55),
+                    Color.FromArgb(0x4C, 0xFF, 0x91, 0xC2),
+                    Color.FromArgb(0xCC, 0x20, 0x0E, 0x24)
+                ),
+                ["Emerald"] =
+                (
+                    Color.FromRgb(0x00, 0xC8, 0x53),
+                    Color.FromArgb(0x33, 0x00, 0xC8, 0x53),
+                    Color.FromArgb(0x4C, 0x00, 0xE6, 0x76),
+                    Color.FromArgb(0xCC, 0x0C, 0x22, 0x1A)
+                ),
+                ["Teal"] =
+                (
+                    Color.FromRgb(0x00, 0xBF, 0xA5),
+                    Color.FromArgb(0x33, 0x00, 0xBF, 0xA5),
+                    Color.FromArgb(0x4C, 0x64, 0xFF, 0xDA),
+                    Color.FromArgb(0xCC, 0x0B, 0x1F, 0x23)
+                ),
+                ["Amber"] =
+                (
+                    Color.FromRgb(0xFF, 0xB3, 0x00),
+                    Color.FromArgb(0x33, 0xFF, 0xB3, 0x00),
+                    Color.FromArgb(0x4C, 0xFF, 0xD5, 0x4F),
+                    Color.FromArgb(0xCC, 0x24, 0x19, 0x0D)
+                ),
+                ["Rose"] =
+                (
+                    Color.FromRgb(0xEC, 0x40, 0x7A),
+                    Color.FromArgb(0x33, 0xEC, 0x40, 0x7A),
+                    Color.FromArgb(0x4C, 0xFF, 0x80, 0xAB),
+                    Color.FromArgb(0xCC, 0x22, 0x0E, 0x1A)
+                ),
+                ["Indigo"] =
+                (
+                    Color.FromRgb(0x5E, 0x35, 0xB1),
+                    Color.FromArgb(0x33, 0x5E, 0x35, 0xB1),
+                    Color.FromArgb(0x4C, 0x95, 0x75, 0xCD),
+                    Color.FromArgb(0xCC, 0x14, 0x12, 0x2B)
+                )
             };
 
-            if (!map.TryGetValue(theme, out var c)) return;
-
-            SetBrushColor("AccentBrush", c.Ac);
-            SetBrushColor("AccentSoftBrush", c.AS);
-            SetBrushColor("BorderBrush", c.Bo);
-            SetBrushColor("PanelBrush", c.Pa);
-            SetBrushColor("MainBgBrush", c.Bg);
-            SetBrushColor("TextMutedBrush", c.Mute);
-
-            ApplyContainerVisuals(isMaterial: false, c.Bg, Color.FromArgb(0xCC, 0x0D, 0x1B, 0x33), Color.FromRgb(0xD7, 0xF1, 0xFF));
-            SetModeButtonVisual();
-        }
-
-        private void MaterialModeToggle_Click(object sender, RoutedEventArgs e)
-        {
-            bool enabled = MaterialModeCheck.IsChecked == true;
-            _materialMode = enabled;
-
-            if (enabled)
-            {
-                ApplyMaterialFromInputs();
-                AppendLog("[THEME] Material Design mode enabled.");
-            }
-            else
-            {
-                ApplyTheme(_classicTheme);
-                AppendLog("[THEME] Material Design mode disabled.");
-            }
-        }
-
-        private void ApplyMaterialColors_Click(object sender, RoutedEventArgs e)
-        {
-            if (MaterialModeCheck.IsChecked != true)
-                MaterialModeCheck.IsChecked = true;
-
-            _materialMode = true;
-            ApplyMaterialFromInputs();
-            AppendLog("[THEME] Custom material colors applied.");
-        }
-
-        private void ResetMaterialColors_Click(object sender, RoutedEventArgs e)
-        {
-            InitializeMaterialInputs();
-            if (MaterialModeCheck.IsChecked == true)
-            {
-                ApplyMaterialFromInputs();
-            }
-        }
-
-        private void ApplyMaterialFromInputs()
-        {
-            if (!TryParseHex(MaterialPrimaryBox.Text, out var primary) ||
-                !TryParseHex(MaterialSurfaceBox.Text, out var surface) ||
-                !TryParseHex(MaterialBackgroundBox.Text, out var background) ||
-                !TryParseHex(MaterialOnSurfaceBox.Text, out var onSurface))
-            {
-                AppendLog("[ERR] Invalid material color hex format.");
+            if (!map.TryGetValue(theme, out var c))
                 return;
-            }
 
-            var accentSoft = Color.FromArgb(0x22, primary.R, primary.G, primary.B);
-            var border = Color.FromArgb(0x44, onSurface.R, onSurface.G, onSurface.B);
-            var panel = Color.FromArgb(0xF2, surface.R, surface.G, surface.B);
-            var muted = Color.FromArgb(0xB0, onSurface.R, onSurface.G, onSurface.B);
+            Resources["AccentBrush"] = new SolidColorBrush(c.Ac);
+            Resources["AccentSoftBrush"] = new SolidColorBrush(c.AS);
+            Resources["BorderBrush"] = new SolidColorBrush(c.Bo);
+            Resources["PanelBrush"] = new SolidColorBrush(c.Pa);
 
-            SetBrushColor("AccentBrush", primary);
-            SetBrushColor("AccentSoftBrush", accentSoft);
-            SetBrushColor("BorderBrush", border);
-            SetBrushColor("PanelBrush", panel);
-            SetBrushColor("MainBgBrush", background);
-            SetBrushColor("TextMutedBrush", muted);
-
-            ApplyContainerVisuals(isMaterial: true, background, panel, onSurface);
             SetModeButtonVisual();
-        }
-
-        private void ApplyContainerVisuals(bool isMaterial, Color background, Color panel, Color foreground)
-        {
-            var panelBrush = new SolidColorBrush(panel);
-            var fgBrush = new SolidColorBrush(foreground);
-
-            DeviceStatusCard.Background = panelBrush;
-            MainContentBorder.Background = panelBrush;
-            CommandPreviewBorder.Background = panelBrush;
-            QuickActionsBorder.Background = panelBrush;
-            OptionsBorder.Background = panelBrush;
-            LogTerminalBorder.Background = isMaterial
-                ? new SolidColorBrush(Color.FromArgb(0xFF, (byte)Math.Max(0, panel.R - 8), (byte)Math.Max(0, panel.G - 8), (byte)Math.Max(0, panel.B - 8)))
-                : new SolidColorBrush(Color.FromRgb(0x03, 0x07, 0x0F));
-
-            RootGlassBorder.CornerRadius = isMaterial ? new CornerRadius(24) : new CornerRadius(15);
-            MainContentBorder.CornerRadius = isMaterial ? new CornerRadius(18) : new CornerRadius(15);
-            CommandPreviewBorder.CornerRadius = isMaterial ? new CornerRadius(18) : new CornerRadius(15);
-            QuickActionsBorder.CornerRadius = isMaterial ? new CornerRadius(18) : new CornerRadius(15);
-            OptionsBorder.CornerRadius = isMaterial ? new CornerRadius(18) : new CornerRadius(15);
-
-            Background = new SolidColorBrush(background);
-            Foreground = fgBrush;
-            LogBox.Foreground = fgBrush;
-        }
-
-        private static bool TryParseHex(string text, out Color color)
-        {
-            color = Colors.Transparent;
-            if (string.IsNullOrWhiteSpace(text)) return false;
-
-            try
-            {
-                color = (Color)ColorConverter.ConvertFromString(text.Trim());
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private static string ToHex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
-
-        private void SetBrushColor(string key, Color color)
-        {
-            if (Resources[key] is SolidColorBrush sb)
-                sb.Color = color;
-            else
-                Resources[key] = new SolidColorBrush(color);
         }
 
         private void ShowTab(string tab)
@@ -286,6 +191,7 @@ namespace MKVenomTool
 
             SetModeButtonVisual();
             UpdateCommandPreview();
+
             AppendLog($"[MODE] -> {mode.ToString().ToUpperInvariant()}");
         }
 
@@ -311,20 +217,28 @@ namespace MKVenomTool
         {
             _fbRows.Clear();
             foreach (var p in new[] { "boot", "recovery", "system", "vendor", "product", "vbmeta", "userdata" })
+            {
                 _fbRows.Add(new FlashRow { Key = p, Label = p.ToUpperInvariant() });
+            }
 
             foreach (var r in _fbRows)
+            {
                 r.PropertyChanged += (_, _) => UpdateCommandPreview();
+            }
         }
 
         private void BuildOdinRows()
         {
             _odinRows.Clear();
             foreach (var s in new[] { "BL", "AP", "CP", "CSC", "USERDATA" })
+            {
                 _odinRows.Add(new FlashRow { Key = s, Label = s });
+            }
 
             foreach (var r in _odinRows)
+            {
                 r.PropertyChanged += (_, _) => UpdateCommandPreview();
+            }
         }
 
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
@@ -354,6 +268,7 @@ namespace MKVenomTool
             {
                 DeviceStatusText.Text = "NOT FOUND";
                 DeviceStatusText.Foreground = Brushes.Red;
+
                 AppendLog(_mode == FlashMode.Odin
                     ? "[ERR] No download-mode device found. Check Samsung driver / cable / USB port."
                     : "[ERR] No device found. Check cable / drivers.");
@@ -373,12 +288,18 @@ namespace MKVenomTool
 
             foreach (var line in lines)
             {
-                if (!IsToolDeviceLine(line)) continue;
+                if (!IsToolDeviceLine(line))
+                    continue;
+
                 var state = GetStateFromToolLine(line).ToLowerInvariant();
 
-                if (state == "device" || state == "recovery" || state == "unauthorized") return true;
-                if (allowSideload && state == "sideload") return true;
+                if (state == "device" || state == "recovery" || state == "unauthorized")
+                    return true;
+
+                if (allowSideload && state == "sideload")
+                    return true;
             }
+
             return false;
         }
 
@@ -388,8 +309,13 @@ namespace MKVenomTool
             {
                 var listResult = await RunAsync("odin", "ekoflash", "--list");
                 var listText = $"{listResult.Out}\n{listResult.Err}";
-                if (LooksLikeOdinDeviceFound(listText)) return true;
-                if (listResult.Code == 0 && !LooksLikeNoOdinDevice(listText)) return true;
+
+                if (LooksLikeOdinDeviceFound(listText))
+                    return true;
+
+                if (listResult.Code == 0 && !LooksLikeNoOdinDevice(listText))
+                    return true;
+
                 await Task.Delay(180);
             }
 
@@ -397,8 +323,13 @@ namespace MKVenomTool
             {
                 var detectResult = await RunAsync("odin", "ekoflash", "detect");
                 var detectText = $"{detectResult.Out}\n{detectResult.Err}";
-                if (LooksLikeOdinDeviceFound(detectText)) return true;
-                if (detectResult.Code == 0 && !LooksLikeNoOdinDevice(detectText)) return true;
+
+                if (LooksLikeOdinDeviceFound(detectText))
+                    return true;
+
+                if (detectResult.Code == 0 && !LooksLikeNoOdinDevice(detectText))
+                    return true;
+
                 await Task.Delay(180);
             }
 
@@ -408,23 +339,33 @@ namespace MKVenomTool
         private static bool LooksLikeOdinDeviceFound(string text)
         {
             var t = text.ToLowerInvariant();
+
             if (t.Contains("device detected")) return true;
             if (t.Contains("odin mode")) return true;
             if (t.Contains("connected devices")) return true;
-            if (Regex.IsMatch(t, @"vid[_:\s=]*04e8.*pid[_:\s=]*(6601|685d|68c3|6860)", RegexOptions.IgnoreCase)) return true;
-            if (Regex.IsMatch(t, @"04e8[:\s](6601|685d|68c3|6860)", RegexOptions.IgnoreCase)) return true;
-            if (SplitLines(t).Any(IsToolDeviceLine)) return true;
+
+            if (Regex.IsMatch(t, @"vid[_:\s=]*04e8.*pid[_:\s=]*(6601|685d|68c3|6860)", RegexOptions.IgnoreCase))
+                return true;
+
+            if (Regex.IsMatch(t, @"04e8[:\s](6601|685d|68c3|6860)", RegexOptions.IgnoreCase))
+                return true;
+
+            if (SplitLines(t).Any(IsToolDeviceLine))
+                return true;
+
             return false;
         }
 
         private static bool LooksLikeNoOdinDevice(string text)
         {
             var t = text.ToLowerInvariant();
+
             if (t.Contains("no connected devices detected")) return true;
             if (t.Contains("none of the devices are in odin mode")) return true;
             if (t.Contains("failed to detect compatible download-mode device")) return true;
             if (t.Contains("no download-mode device found")) return true;
             if (t.Contains("no device")) return true;
+
             return false;
         }
 
@@ -432,7 +373,10 @@ namespace MKVenomTool
         {
             var res = await RunAsync("", "cmd", "/c pnputil /enum-devices /connected");
             var txt = $"{res.Out}\n{res.Err}".ToUpperInvariant();
-            if (!txt.Contains("VID_04E8")) return false;
+
+            if (!txt.Contains("VID_04E8"))
+                return false;
+
             return OdinPids.Any(pid => txt.Contains($"PID_{pid}")) || txt.Contains("VID_04E8");
         }
 
@@ -441,7 +385,9 @@ namespace MKVenomTool
 
         private static bool IsToolDeviceLine(string line)
         {
-            if (string.IsNullOrWhiteSpace(line)) return false;
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
             var l = line.Trim();
 
             if (l.StartsWith("List of devices attached", StringComparison.OrdinalIgnoreCase)) return false;
@@ -462,13 +408,16 @@ namespace MKVenomTool
 
         private void Browse_Click(object s, RoutedEventArgs e)
         {
-            if (s is not Button btn) return;
+            if (s is not Button btn)
+                return;
+
             string key = btn.Tag?.ToString() ?? "";
 
             if (key == "sideload")
             {
                 var dlg = new OpenFileDialog { Filter = "ZIP files|*.zip|All files|*.*" };
-                if (dlg.ShowDialog() == true) SideloadPathBox.Text = dlg.FileName;
+                if (dlg.ShowDialog() == true)
+                    SideloadPathBox.Text = dlg.FileName;
                 return;
             }
 
@@ -476,7 +425,8 @@ namespace MKVenomTool
             if (fbRow != null)
             {
                 var dlg = new OpenFileDialog { Filter = "Image files|*.img;*.bin|All files|*.*" };
-                if (dlg.ShowDialog() == true) fbRow.FilePath = dlg.FileName;
+                if (dlg.ShowDialog() == true)
+                    fbRow.FilePath = dlg.FileName;
                 return;
             }
 
@@ -484,7 +434,8 @@ namespace MKVenomTool
             if (odinRow != null)
             {
                 var dlg = new OpenFileDialog { Filter = "TAR/MD5 files|*.tar;*.md5;*.tar.md5|All files|*.*" };
-                if (dlg.ShowDialog() == true) odinRow.FilePath = dlg.FileName;
+                if (dlg.ShowDialog() == true)
+                    odinRow.FilePath = dlg.FileName;
             }
         }
 
@@ -495,6 +446,7 @@ namespace MKVenomTool
                 AppendLog("[!] Scan device first.");
                 return;
             }
+
             if (!_deviceConnected)
             {
                 AppendLog("[!] Device not connected.");
@@ -543,6 +495,7 @@ namespace MKVenomTool
         private async Task<bool> FlashFastboot(CancellationToken ct)
         {
             var targets = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
             if (targets.Count == 0)
             {
                 AppendLog("[!] No files selected.");
@@ -552,8 +505,8 @@ namespace MKVenomTool
             for (int i = 0; i < targets.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
-                var row = targets[i];
 
+                var row = targets[i];
                 if (!File.Exists(row.FilePath))
                 {
                     AppendLog($"[ERR] File not found: {row.FilePath}");
@@ -561,6 +514,7 @@ namespace MKVenomTool
                 }
 
                 AppendLog($"[FLASH] {row.Label} <- {row.FilePath}");
+
                 var res = await RunAsync("platform-tools", "fastboot", $"flash {row.Key} \"{row.FilePath}\"", ct);
 
                 if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
@@ -581,6 +535,7 @@ namespace MKVenomTool
         private async Task<bool> FlashOdin(CancellationToken ct)
         {
             var targets = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
             if (targets.Count == 0)
             {
                 AppendLog("[!] No Odin files selected.");
@@ -588,6 +543,7 @@ namespace MKVenomTool
             }
 
             var sb = new StringBuilder();
+
             foreach (var row in targets)
             {
                 if (!File.Exists(row.FilePath))
@@ -595,11 +551,13 @@ namespace MKVenomTool
                     AppendLog($"[ERR] File not found: {row.FilePath}");
                     return false;
                 }
+
                 if (!OdinArgMap.TryGetValue(row.Key, out var flag))
                 {
                     AppendLog($"[ERR] Unsupported Odin slot: {row.Key}");
                     return false;
                 }
+
                 sb.Append(flag).Append(' ').Append('"').Append(row.FilePath).Append("\" ");
             }
 
@@ -607,10 +565,12 @@ namespace MKVenomTool
             AppendLog($"[ODIN] ekoflash {args}");
 
             var res = await RunAsync("odin", "ekoflash", args, ct);
+
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
 
             var combined = $"{res.Out}\n{res.Err}".ToLowerInvariant();
+
             if (combined.Contains("unknown argument") || combined.Contains("usage:"))
             {
                 AppendLog("[ERR] ekoflash rejected arguments.");
@@ -644,11 +604,13 @@ namespace MKVenomTool
         private async Task<bool> FlashSideload(CancellationToken ct)
         {
             string zip = SideloadPathBox.Text.Trim();
+
             if (string.IsNullOrWhiteSpace(zip))
             {
                 AppendLog("[!] No ZIP selected.");
                 return false;
             }
+
             if (!File.Exists(zip))
             {
                 AppendLog("[!] File not found.");
@@ -656,6 +618,7 @@ namespace MKVenomTool
             }
 
             AppendLog($"[SIDELOAD] {zip}");
+
             var res = await RunAsync("platform-tools", "adb", $"sideload \"{zip}\"", ct);
 
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
@@ -673,17 +636,30 @@ namespace MKVenomTool
 
         private async void FlashOne_Click(object s, RoutedEventArgs e)
         {
-            if (!_deviceChecked) { AppendLog("[!] Scan device first."); return; }
-            if (!_deviceConnected) { AppendLog("[!] Device not connected."); return; }
-            if (s is not Button btn) return;
+            if (!_deviceChecked)
+            {
+                AppendLog("[!] Scan device first.");
+                return;
+            }
+
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Device not connected.");
+                return;
+            }
+
+            if (s is not Button btn)
+                return;
 
             string key = btn.Tag?.ToString() ?? "";
             var row = _fbRows.FirstOrDefault(r => r.Key == key);
+
             if (row == null || string.IsNullOrWhiteSpace(row.FilePath))
             {
                 AppendLog($"[!] No file for {key}.");
                 return;
             }
+
             if (!File.Exists(row.FilePath))
             {
                 AppendLog($"[ERR] File not found: {row.FilePath}");
@@ -691,13 +667,16 @@ namespace MKVenomTool
             }
 
             AppendLog($"[FLASH] {row.Label} <- {row.FilePath}");
+
             var res = await RunAsync("platform-tools", "fastboot", $"flash {row.Key} \"{row.FilePath}\"");
 
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
 
-            if (res.Code == 0) AppendLog("[OK] Partition flashed.");
-            else AppendLog($"[ERR] fastboot exit code: {res.Code}");
+            if (res.Code == 0)
+                AppendLog("[OK] Partition flashed.");
+            else
+                AppendLog($"[ERR] fastboot exit code: {res.Code}");
         }
 
         private void Cancel_Click(object s, RoutedEventArgs e)
@@ -709,13 +688,16 @@ namespace MKVenomTool
 
         private async void QuickCmd_Click(object s, RoutedEventArgs e)
         {
-            if (s is not Button btn) return;
+            if (s is not Button btn)
+                return;
+
             string cmd = btn.Tag?.ToString() ?? "";
 
             if (cmd == "zadig")
             {
                 string path = ToolsManager.GetExePath("zadig", "zadig");
-                if (!File.Exists(path)) path = ToolsManager.GetExePath("tools", "zadig");
+                if (!File.Exists(path))
+                    path = ToolsManager.GetExePath("tools", "zadig");
 
                 if (File.Exists(path))
                     Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
@@ -727,9 +709,11 @@ namespace MKVenomTool
             string[] parts = cmd.Split(new[] { ' ' }, 2);
             string exe = parts[0];
             string args = parts.Length > 1 ? parts[1] : "";
+
             string dir = exe.Equals("ekoflash", StringComparison.OrdinalIgnoreCase) ? "odin" : "platform-tools";
 
             AppendLog($"[CMD] {cmd}");
+
             var res = await RunAsync(dir, exe, args);
 
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
@@ -738,7 +722,9 @@ namespace MKVenomTool
 
         private void BackupSubTab_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn) return;
+            if (sender is not Button btn)
+                return;
+
             _backupTab = btn.Tag?.ToString() ?? "backup";
 
             if (_backupTab == "backup")
@@ -754,7 +740,10 @@ namespace MKVenomTool
             }
         }
 
-        private async void RefreshApps_Click(object sender, RoutedEventArgs e) => await LoadInstalledAppsAsync();
+        private async void RefreshApps_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadInstalledAppsAsync();
+        }
 
         private async Task LoadInstalledAppsAsync()
         {
@@ -787,7 +776,10 @@ namespace MKVenomTool
         private void SelectAllApps_Click(object sender, RoutedEventArgs e) => AppListBox.SelectAll();
         private void ClearApps_Click(object sender, RoutedEventArgs e) => AppListBox.UnselectAll();
 
-        private async void StartBackup_Click(object sender, RoutedEventArgs e) => await StartBackupFlowAsync();
+        private async void StartBackup_Click(object sender, RoutedEventArgs e)
+        {
+            await StartBackupFlowAsync();
+        }
 
         private async Task StartBackupFlowAsync()
         {
@@ -825,7 +817,8 @@ namespace MKVenomTool
 
             foreach (var app in selectedApps)
             {
-                if (_backupCts.IsCancellationRequested) break;
+                if (_backupCts.IsCancellationRequested)
+                    break;
 
                 BackupProgressText.Text = $"[{done + 1}/{total}] {app.DisplayName}";
                 AppendLog($"[BACKUP] {app.DisplayName}");
@@ -868,9 +861,10 @@ namespace MKVenomTool
                 return;
             }
 
-            if (sender is not Button btn) return;
-            string backupPath = btn.Tag?.ToString() ?? "";
+            if (sender is not Button btn)
+                return;
 
+            string backupPath = btn.Tag?.ToString() ?? "";
             if (string.IsNullOrWhiteSpace(backupPath) || !Directory.Exists(backupPath))
             {
                 AppendLog("[ERR] Backup path not found.");
@@ -883,20 +877,24 @@ namespace MKVenomTool
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
-            if (confirm != MessageBoxResult.Yes) return;
+            if (confirm != MessageBoxResult.Yes)
+                return;
 
             btn.IsEnabled = false;
             AppendLog($"[RESTORE] Restoring from: {backupPath}");
 
             bool ok = await BackupService.RestoreBackupAsync(backupPath, AppendLog);
-            AppendLog(ok ? "[OK] Restore completed." : "[ERR] Restore failed.");
+
+            if (ok) AppendLog("[OK] Restore completed.");
+            else AppendLog("[ERR] Restore failed.");
 
             btn.IsEnabled = true;
         }
 
         private void UpdateCommandPreview()
         {
-            if (CommandPreviewBox == null) return;
+            if (CommandPreviewBox == null)
+                return;
 
             CommandPreviewBox.Text = _mode switch
             {
@@ -939,6 +937,7 @@ namespace MKVenomTool
             return Task.Run(() =>
             {
                 var res = new ProcessResult();
+
                 try
                 {
                     string path = !string.IsNullOrWhiteSpace(dir) ? ToolsManager.GetExePath(dir, exe) : exe;
@@ -973,8 +972,8 @@ namespace MKVenomTool
     {
         public string Key { get; set; } = "";
         public string Label { get; set; } = "";
-
         private string _fp = "";
+
         public string FilePath
         {
             get => _fp;
