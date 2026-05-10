@@ -66,7 +66,7 @@ namespace MKVenomTool
 
             AppendLog("===============================================");
             AppendLog(" TURBO FLASH TOOL v1.0 READY");
-            AppendLog(" Developed by: AHMED YOUNIS & Mohamed Khaled");
+            AppendLog(" Developed by: AHMED YOUNIS @A_KOJ0 and MK VENOM PRo @MkProMVP");
             AppendLog("===============================================");
 
             CheckRequirements();
