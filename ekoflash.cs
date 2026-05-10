@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -25,6 +26,18 @@ namespace MKVenomTool
             Sideload,
             Tools
         }
+
+        // ekoflash CLI (Brokkr) expects short args, not --ap/--bl...
+        private static readonly Dictionary<string, string> OdinArgMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["BL"] = "-b",
+            ["AP"] = "-a",
+            ["CP"] = "-c",
+            ["CSC"] = "-s",
+            ["USERDATA"] = "-u"
+        };
+
+        private static readonly string[] OdinPids = { "6601", "685D", "68C3", "6860" };
 
         private FlashMode _mode = FlashMode.Fastboot;
         private readonly ObservableCollection<FlashRow> _fbRows = new();
@@ -57,9 +70,10 @@ namespace MKVenomTool
             UpdateCommandPreview();
         }
 
+        // ----------------------------- Requirements -----------------------------
         private void CheckRequirements()
         {
-            AppendLog($"[SYSTEM] ADB      : {Chk("platform-tools", "adb")}");
+            AppendLog($"[SYSTEM] ADB : {Chk("platform-tools", "adb")}");
             AppendLog($"[SYSTEM] Fastboot : {Chk("platform-tools", "fastboot")}");
             AppendLog($"[SYSTEM] ekoflash : {Chk("odin", "ekoflash")}");
         }
@@ -67,6 +81,7 @@ namespace MKVenomTool
         private static string Chk(string dir, string exe) =>
             ToolsManager.ExeExists(dir, exe) ? "OK" : "MISSING";
 
+        // ----------------------------- Theme -----------------------------
         private void Swatch_Click(object s, RoutedEventArgs e)
         {
             if (s is Button b && b.Tag is string name)
@@ -114,6 +129,7 @@ namespace MKVenomTool
             SetModeButtonVisual();
         }
 
+        // ----------------------------- Tabs -----------------------------
         private void ShowTab(string tab)
         {
             TabCmdPanel.Visibility = tab == "cmd" ? Visibility.Visible : Visibility.Collapsed;
@@ -123,6 +139,7 @@ namespace MKVenomTool
         private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
         private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
 
+        // ----------------------------- Mode -----------------------------
         private void SwitchMode(FlashMode mode)
         {
             _mode = mode;
@@ -159,10 +176,10 @@ namespace MKVenomTool
             ToolsBtn.Background = _mode == FlashMode.Tools ? active : inactive;
         }
 
+        // ----------------------------- Rows -----------------------------
         private void BuildFastbootRows()
         {
             _fbRows.Clear();
-
             foreach (var p in new[] { "boot", "recovery", "system", "vendor", "product", "vbmeta", "userdata" })
             {
                 _fbRows.Add(new FlashRow { Key = p, Label = p.ToUpperInvariant() });
@@ -177,7 +194,6 @@ namespace MKVenomTool
         private void BuildOdinRows()
         {
             _odinRows.Clear();
-
             foreach (var s in new[] { "BL", "AP", "CP", "CSC", "USERDATA" })
             {
                 _odinRows.Add(new FlashRow { Key = s, Label = s });
@@ -189,33 +205,19 @@ namespace MKVenomTool
             }
         }
 
-        // Device detection with mode-aware command selection.
-        // Odin mode uses ekoflash detect (not adb / not fastboot).
+        // ----------------------------- Detect -----------------------------
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
             DeviceStatusText.Text = "SCANNING...";
             DeviceStatusText.Foreground = (Brush)Resources["AccentBrush"];
 
-            bool found;
-
-            switch (_mode)
+            bool found = _mode switch
             {
-                case FlashMode.Fastboot:
-                    found = await DetectFastbootAsync();
-                    break;
-
-                case FlashMode.Odin:
-                    found = await DetectOdinDownloadModeAsync();
-                    break;
-
-                case FlashMode.Sideload:
-                    found = await DetectAdbAsync(allowSideload: true);
-                    break;
-
-                default:
-                    found = await DetectAdbAsync(allowSideload: false);
-                    break;
-            }
+                FlashMode.Fastboot => await DetectFastbootAsync(),
+                FlashMode.Odin => await DetectOdinDownloadModeAsync(),
+                FlashMode.Sideload => await DetectAdbAsync(allowSideload: true),
+                _ => await DetectAdbAsync(allowSideload: false)
+            };
 
             _deviceConnected = found;
             _deviceChecked = true;
@@ -231,22 +233,16 @@ namespace MKVenomTool
                 DeviceStatusText.Text = "NOT FOUND";
                 DeviceStatusText.Foreground = Brushes.Red;
 
-                if (_mode == FlashMode.Odin)
-                {
-                    AppendLog("[ERR] No download-mode device found. Check Samsung driver / cable / USB port.");
-                }
-                else
-                {
-                    AppendLog("[ERR] No device found. Check cable / drivers.");
-                }
+                AppendLog(_mode == FlashMode.Odin
+                    ? "[ERR] No download-mode device found. Check Samsung driver / cable / USB port."
+                    : "[ERR] No device found. Check cable / drivers.");
             }
         }
 
         private async Task<bool> DetectFastbootAsync()
         {
             var result = await RunAsync("platform-tools", "fastboot", "devices");
-            var lines = SplitLines(result.Out);
-            return lines.Any(l => l.Contains("\tfastboot", StringComparison.OrdinalIgnoreCase));
+            return SplitLines(result.Out).Any(IsToolDeviceLine);
         }
 
         private async Task<bool> DetectAdbAsync(bool allowSideload)
@@ -256,10 +252,16 @@ namespace MKVenomTool
 
             foreach (var line in lines)
             {
-                if (line.Contains("\tdevice", StringComparison.OrdinalIgnoreCase))
+                if (!IsToolDeviceLine(line))
+                    continue;
+
+                var state = GetStateFromToolLine(line).ToLowerInvariant();
+
+                // unauthorized still means cable/driver/device is physically visible
+                if (state == "device" || state == "recovery" || state == "unauthorized")
                     return true;
 
-                if (allowSideload && line.Contains("\tsideload", StringComparison.OrdinalIgnoreCase))
+                if (allowSideload && state == "sideload")
                     return true;
             }
 
@@ -268,37 +270,123 @@ namespace MKVenomTool
 
         private async Task<bool> DetectOdinDownloadModeAsync()
         {
-            var result = await RunAsync("odin", "ekoflash", "detect");
-            var allText = $"{result.Out}\n{result.Err}".ToLowerInvariant();
+            // Try list twice to avoid transient USB timing misses
+            for (int i = 0; i < 2; i++)
+            {
+                var listResult = await RunAsync("odin", "ekoflash", "--list");
+                var listText = $"{listResult.Out}\n{listResult.Err}";
 
-            if (result.Code == 0)
+                if (LooksLikeOdinDeviceFound(listText))
+                    return true;
+
+                if (listResult.Code == 0 && !LooksLikeNoOdinDevice(listText))
+                    return true;
+
+                await Task.Delay(180);
+            }
+
+            // Legacy detect fallback (some builds keep it)
+            for (int i = 0; i < 2; i++)
+            {
+                var detectResult = await RunAsync("odin", "ekoflash", "detect");
+                var detectText = $"{detectResult.Out}\n{detectResult.Err}";
+
+                if (LooksLikeOdinDeviceFound(detectText))
+                    return true;
+
+                if (detectResult.Code == 0 && !LooksLikeNoOdinDevice(detectText))
+                    return true;
+
+                await Task.Delay(180);
+            }
+
+            // Windows fallback for Samsung VID
+            return await DetectOdinByPnpUtilAsync();
+        }
+
+        private static bool LooksLikeOdinDeviceFound(string text)
+        {
+            var t = text.ToLowerInvariant();
+
+            if (t.Contains("device detected")) return true;
+            if (t.Contains("odin mode")) return true;
+            if (t.Contains("connected devices")) return true;
+
+            if (Regex.IsMatch(t, @"vid[_:\s=]*04e8.*pid[_:\s=]*(6601|685d|68c3|6860)", RegexOptions.IgnoreCase))
                 return true;
 
-            if (allText.Contains("device detected"))
+            if (Regex.IsMatch(t, @"04e8[:\s](6601|685d|68c3|6860)", RegexOptions.IgnoreCase))
                 return true;
 
-            if (allText.Contains("failed to detect"))
-                return false;
-
-            if (allText.Contains("no device"))
-                return false;
+            if (SplitLines(t).Any(IsToolDeviceLine))
+                return true;
 
             return false;
+        }
+
+        private static bool LooksLikeNoOdinDevice(string text)
+        {
+            var t = text.ToLowerInvariant();
+
+            if (t.Contains("no connected devices detected")) return true;
+            if (t.Contains("none of the devices are in odin mode")) return true;
+            if (t.Contains("failed to detect compatible download-mode device")) return true;
+            if (t.Contains("no download-mode device found")) return true;
+            if (t.Contains("no device")) return true;
+
+            return false;
+        }
+
+        private async Task<bool> DetectOdinByPnpUtilAsync()
+        {
+            var res = await RunAsync("", "cmd", "/c pnputil /enum-devices /connected");
+            var txt = $"{res.Out}\n{res.Err}".ToUpperInvariant();
+
+            if (!txt.Contains("VID_04E8"))
+                return false;
+
+            return OdinPids.Any(pid => txt.Contains($"PID_{pid}")) || txt.Contains("VID_04E8");
         }
 
         private static IEnumerable<string> SplitLines(string text) =>
             text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
 
+        private static bool IsToolDeviceLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
+            var l = line.Trim();
+
+            if (l.StartsWith("List of devices attached", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("Usage:", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("CLI options", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("Notes:", StringComparison.OrdinalIgnoreCase)) return false;
+            if (l.StartsWith("-", StringComparison.OrdinalIgnoreCase)) return false;
+
+            var parts = l.Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2;
+        }
+
+        private static string GetStateFromToolLine(string line)
+        {
+            var parts = line.Trim().Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Length >= 2 ? parts[^1] : string.Empty;
+        }
+
+        // ----------------------------- Browse -----------------------------
         private void Browse_Click(object s, RoutedEventArgs e)
         {
-            if (s is not Button btn) return;
+            if (s is not Button btn)
+                return;
 
             string key = btn.Tag?.ToString() ?? "";
 
             if (key == "sideload")
             {
                 var dlg = new OpenFileDialog { Filter = "ZIP files|*.zip|All files|*.*" };
-                if (dlg.ShowDialog() == true) SideloadPathBox.Text = dlg.FileName;
+                if (dlg.ShowDialog() == true)
+                    SideloadPathBox.Text = dlg.FileName;
                 return;
             }
 
@@ -306,7 +394,8 @@ namespace MKVenomTool
             if (fbRow != null)
             {
                 var dlg = new OpenFileDialog { Filter = "Image files|*.img;*.bin|All files|*.*" };
-                if (dlg.ShowDialog() == true) fbRow.FilePath = dlg.FileName;
+                if (dlg.ShowDialog() == true)
+                    fbRow.FilePath = dlg.FileName;
                 return;
             }
 
@@ -314,15 +403,23 @@ namespace MKVenomTool
             if (odinRow != null)
             {
                 var dlg = new OpenFileDialog { Filter = "TAR/MD5 files|*.tar;*.md5;*.tar.md5|All files|*.*" };
-                if (dlg.ShowDialog() == true) odinRow.FilePath = dlg.FileName;
+                if (dlg.ShowDialog() == true)
+                    odinRow.FilePath = dlg.FileName;
             }
         }
 
+        // ----------------------------- Flash All -----------------------------
         private async void FlashAll_Click(object s, RoutedEventArgs e)
         {
-            if (!_deviceConnected)
+            if (!_deviceChecked)
             {
                 AppendLog("[!] Scan device first.");
+                return;
+            }
+
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Device not connected.");
                 return;
             }
 
@@ -332,25 +429,25 @@ namespace MKVenomTool
 
             try
             {
-                switch (_mode)
+                bool success = _mode switch
                 {
-                    case FlashMode.Fastboot:
-                        await FlashFastboot(_cts.Token);
-                        break;
-                    case FlashMode.Odin:
-                        await FlashOdin(_cts.Token);
-                        break;
-                    case FlashMode.Sideload:
-                        await FlashSideload(_cts.Token);
-                        break;
-                    default:
-                        AppendLog("[!] Switch to Fastboot, Odin, or Sideload mode to flash.");
-                        return;
-                }
+                    FlashMode.Fastboot => await FlashFastboot(_cts.Token),
+                    FlashMode.Odin => await FlashOdin(_cts.Token),
+                    FlashMode.Sideload => await FlashSideload(_cts.Token),
+                    _ => false
+                };
 
-                AppendLog("[OK] All operations finished.");
-                ProgressStatusText.Text = "Done.";
-                MainProgress.Value = 100;
+                if (success)
+                {
+                    AppendLog("[OK] All operations finished.");
+                    ProgressStatusText.Text = "Done.";
+                    MainProgress.Value = 100;
+                }
+                else
+                {
+                    AppendLog("[ERR] Flash failed.");
+                    ProgressStatusText.Text = "Failed.";
+                }
             }
             catch (OperationCanceledException)
             {
@@ -359,13 +456,15 @@ namespace MKVenomTool
             }
         }
 
-        private async Task FlashFastboot(CancellationToken ct)
+        // ----------------------------- Fastboot -----------------------------
+        private async Task<bool> FlashFastboot(CancellationToken ct)
         {
             var targets = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
             if (targets.Count == 0)
             {
                 AppendLog("[!] No files selected.");
-                return;
+                return false;
             }
 
             for (int i = 0; i < targets.Count; i++)
@@ -373,6 +472,12 @@ namespace MKVenomTool
                 ct.ThrowIfCancellationRequested();
 
                 var row = targets[i];
+                if (!File.Exists(row.FilePath))
+                {
+                    AppendLog($"[ERR] File not found: {row.FilePath}");
+                    return false;
+                }
+
                 AppendLog($"[FLASH] {row.Label} <- {row.FilePath}");
 
                 var res = await RunAsync("platform-tools", "fastboot", $"flash {row.Key} \"{row.FilePath}\"", ct);
@@ -380,49 +485,103 @@ namespace MKVenomTool
                 if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
                 if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
 
+                if (res.Code != 0)
+                {
+                    AppendLog($"[ERR] fastboot exit code: {res.Code}");
+                    return false;
+                }
+
                 MainProgress.Value = (double)(i + 1) / targets.Count * 100;
             }
+
+            return true;
         }
 
-        private async Task FlashOdin(CancellationToken ct)
+        // ----------------------------- Odin / ekoflash -----------------------------
+        private async Task<bool> FlashOdin(CancellationToken ct)
         {
             var targets = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
             if (targets.Count == 0)
             {
                 AppendLog("[!] No Odin files selected.");
-                return;
+                return false;
             }
 
             var sb = new StringBuilder();
-            foreach (var r in targets)
+
+            foreach (var row in targets)
             {
-                sb.Append($"--{r.Key.ToLowerInvariant()} \"{r.FilePath}\" ");
+                if (!File.Exists(row.FilePath))
+                {
+                    AppendLog($"[ERR] File not found: {row.FilePath}");
+                    return false;
+                }
+
+                if (!OdinArgMap.TryGetValue(row.Key, out var flag))
+                {
+                    AppendLog($"[ERR] Unsupported Odin slot: {row.Key}");
+                    return false;
+                }
+
+                sb.Append(flag).Append(' ').Append('"').Append(row.FilePath).Append("\" ");
             }
 
-            AppendLog($"[ODIN] ekoflash {sb}");
+            var args = sb.ToString().Trim();
+            AppendLog($"[ODIN] ekoflash {args}");
 
-            var res = await RunAsync("odin", "ekoflash", sb.ToString().Trim(), ct);
+            var res = await RunAsync("odin", "ekoflash", args, ct);
 
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
 
+            var combined = $"{res.Out}\n{res.Err}".ToLowerInvariant();
+
+            if (combined.Contains("unknown argument") || combined.Contains("usage:"))
+            {
+                AppendLog("[ERR] ekoflash rejected arguments.");
+                return false;
+            }
+
+            if (combined.Contains("no connected devices detected") ||
+                combined.Contains("none of the devices are in odin mode") ||
+                combined.Contains("not in odin mode"))
+            {
+                AppendLog("[ERR] Device dropped out of Odin mode.");
+                return false;
+            }
+
+            if (res.Code != 0)
+            {
+                AppendLog($"[ERR] ekoflash exit code: {res.Code}");
+                return false;
+            }
+
+            if (combined.Contains("error"))
+            {
+                AppendLog("[ERR] ekoflash reported an error.");
+                return false;
+            }
+
             MainProgress.Value = 100;
+            return true;
         }
 
-        private async Task FlashSideload(CancellationToken ct)
+        // ----------------------------- Sideload -----------------------------
+        private async Task<bool> FlashSideload(CancellationToken ct)
         {
             string zip = SideloadPathBox.Text.Trim();
 
             if (string.IsNullOrWhiteSpace(zip))
             {
                 AppendLog("[!] No ZIP selected.");
-                return;
+                return false;
             }
 
             if (!File.Exists(zip))
             {
                 AppendLog("[!] File not found.");
-                return;
+                return false;
             }
 
             AppendLog($"[SIDELOAD] {zip}");
@@ -432,18 +591,33 @@ namespace MKVenomTool
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
 
+            if (res.Code != 0)
+            {
+                AppendLog($"[ERR] adb sideload exit code: {res.Code}");
+                return false;
+            }
+
             MainProgress.Value = 100;
+            return true;
         }
 
+        // ----------------------------- Flash one -----------------------------
         private async void FlashOne_Click(object s, RoutedEventArgs e)
         {
-            if (!_deviceConnected)
+            if (!_deviceChecked)
             {
                 AppendLog("[!] Scan device first.");
                 return;
             }
 
-            if (s is not Button btn) return;
+            if (!_deviceConnected)
+            {
+                AppendLog("[!] Device not connected.");
+                return;
+            }
+
+            if (s is not Button btn)
+                return;
 
             string key = btn.Tag?.ToString() ?? "";
             var row = _fbRows.FirstOrDefault(r => r.Key == key);
@@ -454,33 +628,50 @@ namespace MKVenomTool
                 return;
             }
 
+            if (!File.Exists(row.FilePath))
+            {
+                AppendLog($"[ERR] File not found: {row.FilePath}");
+                return;
+            }
+
             AppendLog($"[FLASH] {row.Label} <- {row.FilePath}");
 
             var res = await RunAsync("platform-tools", "fastboot", $"flash {row.Key} \"{row.FilePath}\"");
 
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
+
+            if (res.Code == 0)
+                AppendLog("[OK] Partition flashed.");
+            else
+                AppendLog($"[ERR] fastboot exit code: {res.Code}");
         }
 
+        // ----------------------------- Cancel -----------------------------
         private void Cancel_Click(object s, RoutedEventArgs e)
         {
             _cts?.Cancel();
             AppendLog("[STOP] Cancelled by user.");
         }
 
+        // ----------------------------- Quick commands -----------------------------
         private async void QuickCmd_Click(object s, RoutedEventArgs e)
         {
-            if (s is not Button btn) return;
+            if (s is not Button btn)
+                return;
 
             string cmd = btn.Tag?.ToString() ?? "";
 
             if (cmd == "zadig")
             {
-                string path = ToolsManager.GetExePath("tools", "zadig");
+                string path = ToolsManager.GetExePath("zadig", "zadig");
+                if (!File.Exists(path))
+                    path = ToolsManager.GetExePath("tools", "zadig");
+
                 if (File.Exists(path))
                     Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
                 else
-                    AppendLog("[!] zadig.exe not found in tools\\");
+                    AppendLog("[!] zadig.exe not found in zadig\\ or tools\\");
                 return;
             }
 
@@ -488,17 +679,21 @@ namespace MKVenomTool
             string exe = parts[0];
             string args = parts.Length > 1 ? parts[1] : "";
 
+            string dir = exe.Equals("ekoflash", StringComparison.OrdinalIgnoreCase) ? "odin" : "platform-tools";
+
             AppendLog($"[CMD] {cmd}");
 
-            var res = await RunAsync("platform-tools", exe, args);
+            var res = await RunAsync(dir, exe, args);
 
             if (!string.IsNullOrWhiteSpace(res.Out)) AppendLog(res.Out.Trim());
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
         }
 
+        // ----------------------------- Preview -----------------------------
         private void UpdateCommandPreview()
         {
-            if (CommandPreviewBox == null) return;
+            if (CommandPreviewBox == null)
+                return;
 
             CommandPreviewBox.Text = _mode switch
             {
@@ -522,19 +717,24 @@ namespace MKVenomTool
         {
             var parts = _odinRows
                 .Where(r => !string.IsNullOrWhiteSpace(r.FilePath))
-                .Select(r => $"--{r.Key.ToLowerInvariant()} \"{r.FilePath}\"");
+                .Select(r =>
+                {
+                    var flag = OdinArgMap.TryGetValue(r.Key, out var f) ? f : "?";
+                    return $"{flag} \"{r.FilePath}\"";
+                });
 
-            return parts.Any() ? "ekoflash " + string.Join(" ", parts) : "ekoflash --bl --ap ...";
+            return parts.Any() ? "ekoflash " + string.Join(" ", parts) : "ekoflash -b -a -c -s -u ...";
         }
 
-        private void AppendLog(string msg) =>
-            Dispatcher.Invoke(() =>
-            {
-                LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
-                LogBox.ScrollToEnd();
-                ProgressStatusText.Text = msg;
-            });
+        // ----------------------------- Logging -----------------------------
+        private void AppendLog(string msg) => Dispatcher.Invoke(() =>
+        {
+            LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
+            LogBox.ScrollToEnd();
+            ProgressStatusText.Text = msg;
+        });
 
+        // ----------------------------- Runner -----------------------------
         private Task<ProcessResult> RunAsync(string dir, string exe, string args, CancellationToken ct = default)
         {
             return Task.Run(() =>
@@ -543,9 +743,9 @@ namespace MKVenomTool
 
                 try
                 {
-                    string path = ToolsManager.GetExePath(dir, exe);
+                    string path = !string.IsNullOrWhiteSpace(dir) ? ToolsManager.GetExePath(dir, exe) : exe;
                     if (!File.Exists(path))
-                        path = exe;
+                        path = exe; // fallback PATH
 
                     var psi = new ProcessStartInfo(path, args)
                     {
@@ -567,6 +767,7 @@ namespace MKVenomTool
                 }
                 catch (Exception ex)
                 {
+                    res.Code = -1;
                     res.Err = ex.Message;
                 }
 
