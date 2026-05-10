@@ -100,6 +100,7 @@ namespace MKVenomTool
         private static string Chk(string dir, string exe) =>
             ToolsManager.ExeExists(dir, exe) ? "OK" : "MISSING";
 
+        // ----------------------------- Theme -----------------------------
         private void Swatch_Click(object s, RoutedEventArgs e)
         {
             if (s is Button b && b.Tag is string accentName)
@@ -198,7 +199,7 @@ namespace MKVenomTool
                     break;
             }
 
-            var softAlpha = _activeThemeStyle == ThemeStyle.Material ? (byte)0x26 : (byte)0x33;
+            byte softAlpha = _activeThemeStyle == ThemeStyle.Material ? (byte)0x26 : (byte)0x33;
             SetBrushColor("AccentBrush", accent);
             SetBrushColor("AccentSoftBrush", Color.FromArgb(softAlpha, accent.R, accent.G, accent.B));
             SetBrushColor("SuccessBrush", Color.FromRgb(0x1C, 0xE1, 0x7A));
@@ -231,6 +232,7 @@ namespace MKVenomTool
             MaterialThemeBtn.Background = _activeThemeStyle == ThemeStyle.Material ? active : inactive;
         }
 
+        // ----------------------------- Tabs -----------------------------
         private void ShowTab(string tab)
         {
             TabCmdPanel.Visibility = tab == "cmd" ? Visibility.Visible : Visibility.Collapsed;
@@ -240,6 +242,7 @@ namespace MKVenomTool
         private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
         private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
 
+        // ----------------------------- Mode -----------------------------
         private void SwitchMode(FlashMode mode)
         {
             _mode = mode;
@@ -270,8 +273,8 @@ namespace MKVenomTool
             if (FastbootBtn == null || OdinBtn == null || SideloadBtn == null || ToolsBtn == null)
                 return;
 
-            var active = (Brush)Resources["AccentSoftBrush"];
-            var inactive = (Brush)Resources["ModeBtnBgBrush"];
+            Brush active = (Brush)Resources["AccentSoftBrush"];
+            Brush inactive = (Brush)Resources["ModeBtnBgBrush"];
 
             FastbootBtn.Background = _mode == FlashMode.Fastboot ? active : inactive;
             OdinBtn.Background = _mode == FlashMode.Odin ? active : inactive;
@@ -279,6 +282,7 @@ namespace MKVenomTool
             ToolsBtn.Background = _mode == FlashMode.Tools ? active : inactive;
         }
 
+        // ----------------------------- Build rows -----------------------------
         private void BuildFastbootRows()
         {
             _fbRows.Clear();
@@ -299,6 +303,7 @@ namespace MKVenomTool
                 r.PropertyChanged += (_, _) => UpdateCommandPreview();
         }
 
+        // ----------------------------- Detection -----------------------------
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
             DeviceStatusText.Text = "SCANNING...";
@@ -340,12 +345,14 @@ namespace MKVenomTool
         private async Task<bool> DetectAdbAsync(bool allowSideload)
         {
             var result = await RunAsync("platform-tools", "adb", "devices");
+
             foreach (var line in SplitLines(result.Out))
             {
                 if (!IsToolDeviceLine(line))
                     continue;
 
                 var state = GetStateFromToolLine(line).ToLowerInvariant();
+
                 if (state == "device" || state == "recovery" || state == "unauthorized")
                     return true;
 
@@ -456,6 +463,7 @@ namespace MKVenomTool
             return parts.Length >= 2 ? parts[^1] : string.Empty;
         }
 
+        // ----------------------------- Browse -----------------------------
         private void Browse_Click(object s, RoutedEventArgs e)
         {
             if (s is not Button btn)
@@ -489,6 +497,7 @@ namespace MKVenomTool
             }
         }
 
+        // ----------------------------- Flash -----------------------------
         private async void FlashAll_Click(object s, RoutedEventArgs e)
         {
             if (!_deviceChecked)
@@ -539,6 +548,7 @@ namespace MKVenomTool
         private async Task<bool> FlashFastboot(CancellationToken ct)
         {
             var targets = _fbRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
             if (targets.Count == 0)
             {
                 AppendLog("[!] No files selected.");
@@ -577,6 +587,7 @@ namespace MKVenomTool
         private async Task<bool> FlashOdin(CancellationToken ct)
         {
             var targets = _odinRows.Where(r => !string.IsNullOrWhiteSpace(r.FilePath)).ToList();
+
             if (targets.Count == 0)
             {
                 AppendLog("[!] No Odin files selected.");
@@ -584,6 +595,7 @@ namespace MKVenomTool
             }
 
             var sb = new StringBuilder();
+
             foreach (var row in targets)
             {
                 if (!File.Exists(row.FilePath))
@@ -719,6 +731,7 @@ namespace MKVenomTool
                 AppendLog($"[ERR] fastboot exit code: {res.Code}");
         }
 
+        // ----------------------------- Misc -----------------------------
         private void Cancel_Click(object s, RoutedEventArgs e)
         {
             _cts?.Cancel();
@@ -759,6 +772,7 @@ namespace MKVenomTool
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
         }
 
+        // ----------------------------- Preview -----------------------------
         private void UpdateCommandPreview()
         {
             if (CommandPreviewBox == null)
@@ -795,6 +809,7 @@ namespace MKVenomTool
             return parts.Any() ? "ekoflash " + string.Join(" ", parts) : "ekoflash -b -a -c -s -u ...";
         }
 
+        // ----------------------------- Logging -----------------------------
         private void AppendLog(string msg) => Dispatcher.Invoke(() =>
         {
             LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
@@ -802,6 +817,7 @@ namespace MKVenomTool
             ProgressStatusText.Text = msg;
         });
 
+        // ----------------------------- Process runner -----------------------------
         private Task<ProcessResult> RunAsync(string dir, string exe, string args, CancellationToken ct = default)
         {
             return Task.Run(() =>
@@ -860,6 +876,7 @@ namespace MKVenomTool
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
+
         protected void OnPropertyChanged([CallerMemberName] string? n = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
     }
