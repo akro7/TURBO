@@ -100,7 +100,6 @@ namespace MKVenomTool
         private static string Chk(string dir, string exe) =>
             ToolsManager.ExeExists(dir, exe) ? "OK" : "MISSING";
 
-        // ----------------------------- Theme -----------------------------
         private void Swatch_Click(object s, RoutedEventArgs e)
         {
             if (s is Button b && b.Tag is string accentName)
@@ -232,7 +231,6 @@ namespace MKVenomTool
             MaterialThemeBtn.Background = _activeThemeStyle == ThemeStyle.Material ? active : inactive;
         }
 
-        // ----------------------------- Tabs -----------------------------
         private void ShowTab(string tab)
         {
             TabCmdPanel.Visibility = tab == "cmd" ? Visibility.Visible : Visibility.Collapsed;
@@ -242,7 +240,6 @@ namespace MKVenomTool
         private void TabCmd_Click(object s, RoutedEventArgs e) => ShowTab("cmd");
         private void TabOptions_Click(object s, RoutedEventArgs e) => ShowTab("options");
 
-        // ----------------------------- Mode -----------------------------
         private void SwitchMode(FlashMode mode)
         {
             _mode = mode;
@@ -282,7 +279,6 @@ namespace MKVenomTool
             ToolsBtn.Background = _mode == FlashMode.Tools ? active : inactive;
         }
 
-        // ----------------------------- Build rows -----------------------------
         private void BuildFastbootRows()
         {
             _fbRows.Clear();
@@ -303,7 +299,6 @@ namespace MKVenomTool
                 r.PropertyChanged += (_, _) => UpdateCommandPreview();
         }
 
-        // ----------------------------- Detection -----------------------------
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
             DeviceStatusText.Text = "SCANNING...";
@@ -313,8 +308,8 @@ namespace MKVenomTool
             {
                 FlashMode.Fastboot => await DetectFastbootAsync(),
                 FlashMode.Odin => await DetectOdinDownloadModeAsync(),
-                FlashMode.Sideload => await DetectAdbAsync(allowSideload: true),
-                _ => await DetectAdbAsync(allowSideload: false)
+                FlashMode.Sideload => await DetectAdbAsync(true),
+                _ => await DetectAdbAsync(false)
             };
 
             _deviceConnected = found;
@@ -463,7 +458,6 @@ namespace MKVenomTool
             return parts.Length >= 2 ? parts[^1] : string.Empty;
         }
 
-        // ----------------------------- Browse -----------------------------
         private void Browse_Click(object s, RoutedEventArgs e)
         {
             if (s is not Button btn)
@@ -497,7 +491,6 @@ namespace MKVenomTool
             }
         }
 
-        // ----------------------------- Flash -----------------------------
         private async void FlashAll_Click(object s, RoutedEventArgs e)
         {
             if (!_deviceChecked)
@@ -731,7 +724,6 @@ namespace MKVenomTool
                 AppendLog($"[ERR] fastboot exit code: {res.Code}");
         }
 
-        // ----------------------------- Misc -----------------------------
         private void Cancel_Click(object s, RoutedEventArgs e)
         {
             _cts?.Cancel();
@@ -772,7 +764,6 @@ namespace MKVenomTool
             if (!string.IsNullOrWhiteSpace(res.Err)) AppendLog($"[ERR] {res.Err.Trim()}");
         }
 
-        // ----------------------------- Preview -----------------------------
         private void UpdateCommandPreview()
         {
             if (CommandPreviewBox == null)
@@ -809,15 +800,31 @@ namespace MKVenomTool
             return parts.Any() ? "ekoflash " + string.Join(" ", parts) : "ekoflash -b -a -c -s -u ...";
         }
 
-        // ----------------------------- Logging -----------------------------
-        private void AppendLog(string msg) => Dispatcher.Invoke(() =>
+        private void AppendLog(string msg)
         {
-            LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
-            LogBox.ScrollToEnd();
-            ProgressStatusText.Text = msg;
-        });
+            try
+            {
+                if (Dispatcher.CheckAccess())
+                {
+                    if (LogBox != null)
+                    {
+                        LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}\n");
+                        LogBox.ScrollToEnd();
+                    }
 
-        // ----------------------------- Process runner -----------------------------
+                    if (ProgressStatusText != null)
+                        ProgressStatusText.Text = msg;
+                }
+                else
+                {
+                    Dispatcher.BeginInvoke(new Action(() => AppendLog(msg)));
+                }
+            }
+            catch
+            {
+            }
+        }
+
         private Task<ProcessResult> RunAsync(string dir, string exe, string args, CancellationToken ct = default)
         {
             return Task.Run(() =>
