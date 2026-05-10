@@ -243,7 +243,7 @@
                                     <Button Content="INSTALL ADB DRIVERS (ZADIG)" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="zadig"/>
                                     <Button Content="REBOOT TO RECOVERY" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot recovery"/>
                                     <Button Content="REBOOT TO DOWNLOAD MODE" Style="{StaticResource ModeButton}" Height="40" Margin="0,0,0,8" Width="Auto" Click="QuickCmd_Click" Tag="adb reboot download"/>
-                                    <Button Content="WIPE CACHE PARTITION" Style="{StaticResource ModeButton}" Height="40" Width="Auto" Foreground="{StaticResource DangerBrush}" Click="QuickCmd_Click" Tag="adb shell su -c 'wipe_cache'"/>
+                                    <Button Content="WIPE CACHE PARTITION" Style="{StaticResource ModeButton}" Height="40" Width="Auto" Foreground="{StaticResource DangerBrush}" Click="QuickCmd_Click" Tag="adb shell wipe cache"/>
                                 </StackPanel>
                             </Grid>
 
@@ -371,10 +371,10 @@
                                     <Separator Margin="0,10,0,10"/>
 
                                     <TextBlock Text="🎨 MATERIAL DESIGN UI" FontSize="12" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" Margin="0,0,0,8"/>
-                                    <TextBlock Text="Google Material Style - اختياري" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Google Material Style - Optional" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
                                     
                                     <CheckBox x:Name="MaterialModeCheck"
-                                              Content="✓ تفعيل Material Design"
+                                              Content="✓ Enable Material Design"
                                               Click="MaterialModeToggle_Click"
                                               Foreground="{StaticResource SuccessBrush}"
                                               FontWeight="Bold"
@@ -393,11 +393,11 @@
                                     <TextBox x:Name="MaterialOnSurfaceBox" Style="{StaticResource PathBox}" Margin="0,4,0,10"/>
 
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Content="طبّق الألوان"
+                                        <Button Content="APPLY COLORS"
                                                 Style="{StaticResource FlashBtn}"
                                                 Width="170"
                                                 Click="ApplyMaterialColors_Click"/>
-                                        <Button Content="إعادة تعيين"
+                                        <Button Content="RESET"
                                                 Style="{StaticResource ModeButton}"
                                                 Width="90"
                                                 Margin="8,0,0,0"
