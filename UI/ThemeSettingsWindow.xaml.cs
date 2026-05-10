@@ -1,5 +1,5 @@
+using System;
 using System.Windows;
-using System.Windows.Controls;
 using MKVenomTool.Theming;
 
 namespace MKVenomTool.UI
@@ -10,16 +10,24 @@ namespace MKVenomTool.UI
         {
             InitializeComponent();
 
-            ThemeCombo.SelectedIndex = (int)ThemeManager.CurrentTheme;
-            AccentCombo.SelectedIndex = (int)ThemeManager.CurrentAccent;
+            ThemeCombo.ItemsSource = Enum.GetValues(typeof(AppTheme));
+            ModeCombo.ItemsSource = Enum.GetValues(typeof(ColorMode));
+            AccentCombo.ItemsSource = Enum.GetValues(typeof(AccentColor));
+
+            ThemeCombo.SelectedItem = ThemeManager.Current.Theme;
+            ModeCombo.SelectedItem = ThemeManager.Current.Mode;
+            AccentCombo.SelectedItem = ThemeManager.Current.Accent;
         }
 
         private void Apply_Click(object sender, RoutedEventArgs e)
         {
-            var mode = (ThemeMode)ThemeCombo.SelectedIndex;
-            var accent = (ThemeAccent)AccentCombo.SelectedIndex;
+            if (ThemeCombo.SelectedItem is not AppTheme theme) return;
+            if (ModeCombo.SelectedItem is not ColorMode mode) return;
+            if (AccentCombo.SelectedItem is not AccentColor accent) return;
 
-            ThemeManager.Apply(mode, accent);
+            ThemeManager.ApplyTheme(theme, mode);
+            ThemeManager.ApplyAccent(accent);
+
             DialogResult = true;
             Close();
         }
