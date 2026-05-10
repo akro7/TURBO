@@ -1,0 +1,97 @@
+<Window x:Class="MKVenomTool.UI.ThemeSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MKVenomTool.Theming"
+        Title="Theme Settings"
+        Width="420"
+        Height="260"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource MainBgBrush}"
+        Foreground="{DynamicResource FgBright}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="16"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="24"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Padding="12"
+                CornerRadius="10"
+                Background="{DynamicResource PanelBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1.2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Theme"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextMutedBrush}"/>
+
+                <ComboBox x:Name="ThemeCombo"
+                          Grid.Column="1"
+                          Height="30"
+                          SelectedIndex="0">
+                    <ComboBoxItem Content="Classic"/>
+                    <ComboBoxItem Content="Liquid Glass"/>
+                    <ComboBoxItem Content="Material"/>
+                </ComboBox>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Padding="12"
+                CornerRadius="10"
+                Background="{DynamicResource PanelBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1.2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Accent"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextMutedBrush}"/>
+
+                <ComboBox x:Name="AccentCombo"
+                          Grid.Column="1"
+                          Height="30"
+                          SelectedIndex="0">
+                    <ComboBoxItem Content="Cyan"/>
+                    <ComboBoxItem Content="Violet"/>
+                    <ComboBoxItem Content="Blue"/>
+                    <ComboBoxItem Content="Green"/>
+                    <ComboBoxItem Content="Orange"/>
+                    <ComboBoxItem Content="Red"/>
+                    <ComboBoxItem Content="Pink"/>
+                </ComboBox>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="4"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Content="Cancel"
+                    Width="90"
+                    Height="34"
+                    Margin="0,0,8,0"
+                    Click="Cancel_Click"/>
+            <Button Content="Apply"
+                    Width="90"
+                    Height="34"
+                    Background="{DynamicResource AccentBrush}"
+                    Foreground="Black"
+                    FontWeight="Bold"
+                    Click="Apply_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
