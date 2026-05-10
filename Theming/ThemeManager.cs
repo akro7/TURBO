@@ -1,20 +1,24 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.Text.Json;
 using System.Windows;
-using System.Windows.Media;
 
 namespace MKVenomTool.Theming
 {
-    public enum ThemeMode
+    public enum AppTheme
     {
         Classic = 0,
         LiquidGlass = 1,
         Material = 2
     }
 
-    public enum ThemeAccent
+    public enum ColorMode
+    {
+        Dark = 0,
+        Light = 1
+    }
+
+    public enum AccentColor
     {
         Cyan = 0,
         Violet = 1,
@@ -25,112 +29,131 @@ namespace MKVenomTool.Theming
         Pink = 6
     }
 
+    public sealed class ThemeConfig
+    {
+        public AppTheme Theme { get; set; } = AppTheme.Classic;
+        public ColorMode Mode { get; set; } = ColorMode.Dark;
+        public AccentColor Accent { get; set; } = AccentColor.Cyan;
+    }
+
     public static class ThemeManager
     {
-        private const string ThemeMarkerKey = "__THEME_RUNTIME_DICTIONARY__";
-        private const string AccentMarkerKey = "__ACCENT_RUNTIME_DICTIONARY__";
-
         private static readonly string ConfigDir =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TURBO");
 
-        private static readonly string ConfigFile = Path.Combine(ConfigDir, "theme.cfg");
+        private static readonly string ConfigPath = Path.Combine(ConfigDir, "theme.json");
 
-        public static ThemeMode CurrentTheme { get; private set; } = ThemeMode.Classic;
-        public static ThemeAccent CurrentAccent { get; private set; } = ThemeAccent.Cyan;
+        public static ThemeConfig Current { get; private set; } = new ThemeConfig();
 
         public static void Initialize()
         {
-            LoadConfig();
-            Apply(CurrentTheme, CurrentAccent);
+            Current = LoadConfig();
+            ApplyTheme(Current.Theme, Current.Mode);
+            ApplyAccent(Current.Accent);
         }
 
-        public static void Apply(ThemeMode mode, ThemeAccent accent)
+        public static void ApplyTheme(AppTheme theme, ColorMode mode)
         {
-            CurrentTheme = mode;
-            CurrentAccent = accent;
+            Current.Theme = theme;
+            Current.Mode = mode;
 
-            RemoveRuntimeDictionaries();
+            var app = Application.Current;
+            if (app == null) return;
 
-            var themeDict = LoadThemeDictionary(mode);
-            themeDict[ThemeMarkerKey] = true;
+            RemoveThemeDictionaries();
 
-            var accentDict = BuildAccentDictionary(accent);
-            accentDict[AccentMarkerKey] = true;
+            string source = theme switch
+            {
+                AppTheme.LiquidGlass => mode == ColorMode.Dark
+                    ? "Themes/LiquidGlass.Dark.xaml"
+                    : "Themes/LiquidGlass.Light.xaml",
 
-            Application.Current.Resources.MergedDictionaries.Add(themeDict);
-            Application.Current.Resources.MergedDictionaries.Add(accentDict);
+                AppTheme.Material => mode == ColorMode.Dark
+                    ? "Themes/Material.Dark.xaml"
+                    : "Themes/Material.Light.xaml",
+
+                _ => mode == ColorMode.Dark
+                    ? "Themes/Classic.Dark.xaml"
+                    : "Themes/Classic.Light.xaml"
+            };
+
+            app.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri(source, UriKind.Relative)
+            });
 
             SaveConfig();
         }
 
-        private static void RemoveRuntimeDictionaries()
+        public static void ApplyAccent(AccentColor accent)
+        {
+            Current.Accent = accent;
+
+            var app = Application.Current;
+            if (app == null) return;
+
+            RemoveAccentDictionary();
+
+            string source = accent switch
+            {
+                AccentColor.Violet => "Themes/Accents/Accent.Violet.xaml",
+                AccentColor.Blue => "Themes/Accents/Accent.Blue.xaml",
+                AccentColor.Green => "Themes/Accents/Accent.Green.xaml",
+                AccentColor.Orange => "Themes/Accents/Accent.Orange.xaml",
+                AccentColor.Red => "Themes/Accents/Accent.Red.xaml",
+                AccentColor.Pink => "Themes/Accents/Accent.Pink.xaml",
+                _ => "Themes/Accents/Accent.Cyan.xaml"
+            };
+
+            app.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri(source, UriKind.Relative)
+            });
+
+            SaveConfig();
+        }
+
+        private static void RemoveThemeDictionaries()
         {
             var merged = Application.Current.Resources.MergedDictionaries;
-            var toRemove = merged
-                .Where(d => d.Contains(ThemeMarkerKey) || d.Contains(AccentMarkerKey))
-                .ToList();
-
-            foreach (var d in toRemove)
+            for (int i = merged.Count - 1; i >= 0; i--)
             {
-                merged.Remove(d);
+                var src = merged[i].Source?.ToString() ?? "";
+                if (src.Contains("Classic.") || src.Contains("LiquidGlass.") || src.Contains("Material."))
+                {
+                    merged.RemoveAt(i);
+                }
             }
         }
 
-        private static ResourceDictionary LoadThemeDictionary(ThemeMode mode)
+        private static void RemoveAccentDictionary()
         {
-            string file = mode switch
+            var merged = Application.Current.Resources.MergedDictionaries;
+            for (int i = merged.Count - 1; i >= 0; i--)
             {
-                ThemeMode.LiquidGlass => "Themes/Theme.LiquidGlass.xaml",
-                ThemeMode.Material => "Themes/Theme.Material.xaml",
-                _ => "Themes/Theme.Classic.xaml"
-            };
+                var src = merged[i].Source?.ToString() ?? "";
+                if (src.Contains("Themes/Accents/Accent."))
+                {
+                    merged.RemoveAt(i);
+                }
+            }
+        }
 
-            return new ResourceDictionary
+        private static ThemeConfig LoadConfig()
+        {
+            try
             {
-                Source = new Uri(file, UriKind.Relative)
-            };
-        }
+                if (!File.Exists(ConfigPath))
+                    return new ThemeConfig();
 
-        private static ResourceDictionary BuildAccentDictionary(ThemeAccent accent)
-        {
-            var palette = GetAccentPalette(accent);
-
-            var d = new ResourceDictionary();
-
-            d["AccentBrush"] = NewBrush(palette.Primary);
-            d["AccentSoftBrush"] = NewBrush(palette.Soft);
-            d["NeCyan"] = NewBrush(palette.Primary);
-            d["NeCyanSoft"] = NewBrush(palette.Soft);
-            d["BorderAccent"] = NewBrush(palette.BorderGlow);
-            d["BorderGlow"] = NewBrush(palette.BorderGlow);
-
-            return d;
-        }
-
-        private static (Color Primary, Color Soft, Color BorderGlow) GetAccentPalette(ThemeAccent accent)
-        {
-            return accent switch
+                var json = File.ReadAllText(ConfigPath);
+                var cfg = JsonSerializer.Deserialize<ThemeConfig>(json);
+                return cfg ?? new ThemeConfig();
+            }
+            catch
             {
-                ThemeAccent.Violet => (FromHex("#8B5CF6"), FromHex("#338B5CF6"), FromHex("#558B5CF6")),
-                ThemeAccent.Blue => (FromHex("#3B82F6"), FromHex("#333B82F6"), FromHex("#553B82F6")),
-                ThemeAccent.Green => (FromHex("#22C55E"), FromHex("#3322C55E"), FromHex("#5522C55E")),
-                ThemeAccent.Orange => (FromHex("#F97316"), FromHex("#33F97316"), FromHex("#55F97316")),
-                ThemeAccent.Red => (FromHex("#EF4444"), FromHex("#33EF4444"), FromHex("#55EF4444")),
-                ThemeAccent.Pink => (FromHex("#EC4899"), FromHex("#33EC4899"), FromHex("#55EC4899")),
-                _ => (FromHex("#00E5FF"), FromHex("#1A00E5FF"), FromHex("#5500E5FF"))
-            };
-        }
-
-        private static SolidColorBrush NewBrush(Color c)
-        {
-            var b = new SolidColorBrush(c);
-            b.Freeze();
-            return b;
-        }
-
-        private static Color FromHex(string hex)
-        {
-            return (Color)ColorConverter.ConvertFromString(hex);
+                return new ThemeConfig();
+            }
         }
 
         private static void SaveConfig()
@@ -138,35 +161,8 @@ namespace MKVenomTool.Theming
             try
             {
                 Directory.CreateDirectory(ConfigDir);
-                File.WriteAllText(ConfigFile, $"{(int)CurrentTheme}|{(int)CurrentAccent}");
-            }
-            catch
-            {
-                // ignore
-            }
-        }
-
-        private static void LoadConfig()
-        {
-            try
-            {
-                if (!File.Exists(ConfigFile)) return;
-
-                var raw = File.ReadAllText(ConfigFile).Trim();
-                var parts = raw.Split('|');
-                if (parts.Length != 2) return;
-
-                if (int.TryParse(parts[0], out var themeVal) &&
-                    Enum.IsDefined(typeof(ThemeMode), themeVal))
-                {
-                    CurrentTheme = (ThemeMode)themeVal;
-                }
-
-                if (int.TryParse(parts[1], out var accentVal) &&
-                    Enum.IsDefined(typeof(ThemeAccent), accentVal))
-                {
-                    CurrentAccent = (ThemeAccent)accentVal;
-                }
+                var json = JsonSerializer.Serialize(Current, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(ConfigPath, json);
             }
             catch
             {
