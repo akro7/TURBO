@@ -189,7 +189,8 @@ namespace MKVenomTool
             }
         }
 
-        // FIX: Detection now uses the right tool for each mode.
+        // Device detection with mode-aware command selection.
+        // Odin mode uses ekoflash detect (not adb / not fastboot).
         private async void DetectDevice_Click(object s, RoutedEventArgs e)
         {
             DeviceStatusText.Text = "SCANNING...";
@@ -232,7 +233,7 @@ namespace MKVenomTool
 
                 if (_mode == FlashMode.Odin)
                 {
-                    AppendLog("[ERR] No download-mode device found. Make sure Samsung USB driver is installed and cable/port is stable.");
+                    AppendLog("[ERR] No download-mode device found. Check Samsung driver / cable / USB port.");
                 }
                 else
                 {
@@ -270,16 +271,19 @@ namespace MKVenomTool
             var result = await RunAsync("odin", "ekoflash", "detect");
             var allText = $"{result.Out}\n{result.Err}".ToLowerInvariant();
 
-            if (result.Code == 0 && allText.Contains("detect"))
+            if (result.Code == 0)
                 return true;
 
             if (allText.Contains("device detected"))
                 return true;
 
-            if (allText.Contains("failed to detect compatible download-mode device"))
+            if (allText.Contains("failed to detect"))
                 return false;
 
-            return result.Code == 0 && !allText.Contains("error");
+            if (allText.Contains("no device"))
+                return false;
+
+            return false;
         }
 
         private static IEnumerable<string> SplitLines(string text) =>
@@ -541,7 +545,7 @@ namespace MKVenomTool
                 {
                     string path = ToolsManager.GetExePath(dir, exe);
                     if (!File.Exists(path))
-                        path = exe; // fallback to PATH
+                        path = exe;
 
                     var psi = new ProcessStartInfo(path, args)
                     {
