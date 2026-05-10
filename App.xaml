@@ -192,6 +192,27 @@
                 <Setter Property="Margin"     Value="0,10"/>
             </Style>
 
+            <!-- إضافات Backup/Restore -->
+            <Style TargetType="DataGrid">
+                <Setter Property="Background" Value="{StaticResource BgInput}"/>
+                <Setter Property="Foreground" Value="{StaticResource FgBright}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BorderNormal}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="RowBackground" Value="#00000000"/>
+                <Setter Property="AlternatingRowBackground" Value="#11000000"/>
+                <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+                <Setter Property="HorizontalGridLinesBrush" Value="#223A5066"/>
+                <Setter Property="VerticalGridLinesBrush" Value="#00000000"/>
+            </Style>
+
+            <Style TargetType="DataGridColumnHeader">
+                <Setter Property="Background" Value="{StaticResource BgCard}"/>
+                <Setter Property="Foreground" Value="{StaticResource NeCyan}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BorderNormal}"/>
+                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+            </Style>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>
