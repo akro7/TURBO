@@ -9,33 +9,33 @@
         FontFamily="Segoe UI">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="MainBgBrush" Color="#08101E"/>
-        <SolidColorBrush x:Key="PanelBrush" Color="#3A0D1B33"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="#4C52BFFF"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#37CFFF"/>
+        <SolidColorBrush x:Key="MainBgBrush"     Color="#08101E"/>
+        <SolidColorBrush x:Key="PanelBrush"      Color="#3A0D1B33"/>
+        <SolidColorBrush x:Key="BorderBrush"     Color="#4C52BFFF"/>
+        <SolidColorBrush x:Key="AccentBrush"     Color="#37CFFF"/>
         <SolidColorBrush x:Key="AccentSoftBrush" Color="#7A35CFFF"/>
-        <SolidColorBrush x:Key="DangerBrush" Color="#5AFF4C78"/>
-        <SolidColorBrush x:Key="SuccessBrush" Color="#5A1CE17A"/>
-        <SolidColorBrush x:Key="WarningBrush" Color="#FFC857"/>
-        <SolidColorBrush x:Key="TextMutedBrush" Color="#9CC7E8"/>
+        <SolidColorBrush x:Key="DangerBrush"     Color="#5AFF4C78"/>
+        <SolidColorBrush x:Key="SuccessBrush"    Color="#5A1CE17A"/>
+        <SolidColorBrush x:Key="WarningBrush"    Color="#FFC857"/>
+        <SolidColorBrush x:Key="TextMutedBrush"  Color="#9CC7E8"/>
 
         <Style x:Key="GlassPanel" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Background"      Value="{DynamicResource PanelBrush}"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="13"/>
-            <Setter Property="Padding" Value="12"/>
+            <Setter Property="CornerRadius"    Value="13"/>
+            <Setter Property="Padding"         Value="12"/>
         </Style>
 
         <Style x:Key="ModeButton" TargetType="Button">
-            <Setter Property="Foreground" Value="#D6E9FF"/>
-            <Setter Property="Background" Value="#2D18253D"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Foreground"      Value="#D6E9FF"/>
+            <Setter Property="Background"      Value="#2D18253D"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="14,7"/>
-            <Setter Property="Margin" Value="0,0,7,0"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Margin"          Value="0,0,7,0"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -53,20 +53,20 @@
         </Style>
 
         <Style x:Key="PathBox" TargetType="TextBox">
-            <Setter Property="Background" Value="#2C132443"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="#EAF4FF"/>
-            <Setter Property="Padding" Value="7,5"/>
+            <Setter Property="Background"               Value="#2C132443"/>
+            <Setter Property="BorderBrush"              Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness"          Value="1"/>
+            <Setter Property="Foreground"               Value="#EAF4FF"/>
+            <Setter Property="Padding"                  Value="7,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
 
         <Style x:Key="BrowseBtn" TargetType="Button">
-            <Setter Property="Background" Value="#36FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#66FFFFFF"/>
+            <Setter Property="Background"      Value="#36FFFFFF"/>
+            <Setter Property="BorderBrush"     Value="#66FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="#F4FAFF"/>
-            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground"      Value="#F4FAFF"/>
+            <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -83,11 +83,11 @@
         </Style>
 
         <Style x:Key="FlashBtn" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background"      Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource AccentBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="#E9F7FF"/>
-            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground"      Value="#E9F7FF"/>
+            <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -105,9 +105,9 @@
 
         <Style x:Key="ActionButton" TargetType="Button">
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="14,7"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontWeight"      Value="Bold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -133,34 +133,30 @@
                         <ColumnDefinition Width="70"/>
                         <ColumnDefinition Width="70"/>
                     </Grid.ColumnDefinitions>
-
                     <TextBlock Grid.Column="0"
                                Text="{Binding Label}"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource AccentBrush}"
                                VerticalAlignment="Center"
                                FontSize="13"/>
-
-                    <TextBox Grid.Column="1"
-                             Style="{StaticResource PathBox}"
-                             Text="{Binding FilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             IsReadOnly="True"
-                             Margin="6,0"/>
-
-                    <Button Grid.Column="2"
-                            Style="{StaticResource BrowseBtn}"
-                            Content="📂"
-                            Tag="{Binding Key}"
-                            Height="28" Width="60"
-                            Click="Browse_Click"
-                            Margin="0,0,4,0"/>
-
-                    <Button Grid.Column="3"
-                            Style="{StaticResource FlashBtn}"
-                            Content="⚡"
-                            Tag="{Binding Key}"
-                            Height="28" Width="60"
-                            Click="FlashOne_Click"/>
+                    <TextBox   Grid.Column="1"
+                               Style="{StaticResource PathBox}"
+                               Text="{Binding FilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                               IsReadOnly="True"
+                               Margin="6,0"/>
+                    <Button    Grid.Column="2"
+                               Style="{StaticResource BrowseBtn}"
+                               Content="📂"
+                               Tag="{Binding Key}"
+                               Height="28" Width="60"
+                               Click="Browse_Click"
+                               Margin="0,0,4,0"/>
+                    <Button    Grid.Column="3"
+                               Style="{StaticResource FlashBtn}"
+                               Content="⚡"
+                               Tag="{Binding Key}"
+                               Height="28" Width="60"
+                               Click="FlashOne_Click"/>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -173,26 +169,23 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="70"/>
                     </Grid.ColumnDefinitions>
-
                     <TextBlock Grid.Column="0"
                                Text="{Binding Label}"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource AccentBrush}"
                                VerticalAlignment="Center"
                                FontSize="13"/>
-
-                    <TextBox Grid.Column="1"
-                             Style="{StaticResource PathBox}"
-                             Text="{Binding FilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             IsReadOnly="True"
-                             Margin="6,0"/>
-
-                    <Button Grid.Column="2"
-                            Style="{StaticResource BrowseBtn}"
-                            Content="📂"
-                            Tag="{Binding Key}"
-                            Height="28" Width="60"
-                            Click="Browse_Click"/>
+                    <TextBox   Grid.Column="1"
+                               Style="{StaticResource PathBox}"
+                               Text="{Binding FilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                               IsReadOnly="True"
+                               Margin="6,0"/>
+                    <Button    Grid.Column="2"
+                               Style="{StaticResource BrowseBtn}"
+                               Content="📂"
+                               Tag="{Binding Key}"
+                               Height="28" Width="60"
+                               Click="Browse_Click"/>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -207,6 +200,7 @@
             <RowDefinition Height="180"/>
         </Grid.RowDefinitions>
 
+        <!-- ═══ ROW 0 : HEADER ═══ -->
         <Border Grid.Row="0"
                 Background="#0A1525"
                 BorderBrush="{DynamicResource BorderBrush}"
@@ -238,35 +232,25 @@
                                VerticalAlignment="Center"
                                Margin="0,0,10,0"/>
                     <Button Style="{StaticResource ActionButton}"
-                            Background="#1A00E5FF"
-                            BorderBrush="#00E5FF"
-                            Foreground="#00E5FF"
-                            Content="● Blue"
-                            Tag="Blue"
-                            Margin="0,0,6,0"
-                            Padding="10,5"
+                            Background="#1A00E5FF" BorderBrush="#00E5FF" Foreground="#00E5FF"
+                            Content="● Blue" Tag="Blue"
+                            Margin="0,0,6,0" Padding="10,5"
                             Click="Swatch_Click"/>
                     <Button Style="{StaticResource ActionButton}"
-                            Background="#1AB67BFF"
-                            BorderBrush="#B67BFF"
-                            Foreground="#B67BFF"
-                            Content="● Purple"
-                            Tag="Purple"
-                            Margin="0,0,6,0"
-                            Padding="10,5"
+                            Background="#1AB67BFF" BorderBrush="#B67BFF" Foreground="#B67BFF"
+                            Content="● Purple" Tag="Purple"
+                            Margin="0,0,6,0" Padding="10,5"
                             Click="Swatch_Click"/>
                     <Button Style="{StaticResource ActionButton}"
-                            Background="#1AFF0055"
-                            BorderBrush="#FF0055"
-                            Foreground="#FF0055"
-                            Content="● Crimson"
-                            Tag="Crimson"
+                            Background="#1AFF0055" BorderBrush="#FF0055" Foreground="#FF0055"
+                            Content="● Crimson" Tag="Crimson"
                             Padding="10,5"
                             Click="Swatch_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
 
+        <!-- ═══ ROW 1 : MODE BAR ═══ -->
         <Border Grid.Row="1"
                 Background="#0C1828"
                 BorderBrush="{DynamicResource BorderBrush}"
@@ -298,20 +282,16 @@
                             Click="ToolsMode_Click"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="DEVICE:"
                                Foreground="{DynamicResource TextMutedBrush}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
+                               FontSize="12" FontWeight="SemiBold"
                                VerticalAlignment="Center"
                                Margin="0,0,10,0"/>
                     <TextBlock x:Name="DeviceStatusText"
                                Text="NOT CHECKED"
                                Foreground="Gray"
-                               FontSize="13"
-                               FontWeight="Bold"
+                               FontSize="13" FontWeight="Bold"
                                VerticalAlignment="Center"
                                Margin="0,0,14,0"/>
                     <Button Style="{StaticResource ActionButton}"
@@ -325,18 +305,21 @@
             </Grid>
         </Border>
 
+        <!-- ═══ ROW 2 : MAIN CONTENT ═══ -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="340"/>
             </Grid.ColumnDefinitions>
 
+            <!-- LEFT : Tabs + Flash panels -->
             <Grid Grid.Column="0" Margin="16,12,8,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
+                <!-- Tab buttons -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
                     <Button Style="{StaticResource ModeButton}"
                             Content="📟 CMD"
@@ -348,53 +331,55 @@
                             Padding="12,6"/>
                 </StackPanel>
 
+                <!-- CMD TAB -->
                 <Grid x:Name="TabCmdPanel" Grid.Row="1">
+
+                    <!-- FASTBOOT PANEL -->
                     <StackPanel x:Name="PanelFastboot" Visibility="Visible">
                         <TextBlock Text="⚡ FASTBOOT FLASH"
-                                   FontSize="14"
-                                   FontWeight="Bold"
+                                   FontSize="14" FontWeight="Bold"
                                    Foreground="{DynamicResource AccentBrush}"
                                    Margin="0,0,0,10"/>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="380">
-                            <ItemsControl x:Name="RowsList" ItemTemplate="{StaticResource FastbootRowTemplate}"/>
+                            <ItemsControl x:Name="RowsList"
+                                          ItemTemplate="{StaticResource FastbootRowTemplate}"/>
                         </ScrollViewer>
                         <Button Style="{StaticResource ActionButton}"
                                 Background="{DynamicResource AccentSoftBrush}"
                                 BorderBrush="{DynamicResource AccentBrush}"
                                 Foreground="#EAF4FF"
                                 Content="⚡ FLASH ALL PARTITIONS"
-                                Padding="16,9"
-                                FontSize="14"
+                                Padding="16,9" FontSize="14"
                                 Margin="0,10,0,0"
                                 HorizontalAlignment="Stretch"
                                 Click="FlashAll_Click"/>
                     </StackPanel>
 
+                    <!-- ODIN PANEL -->
                     <StackPanel x:Name="PanelOdin" Visibility="Collapsed">
                         <TextBlock Text="🟡 ODIN FLASH (ekoflash)"
-                                   FontSize="14"
-                                   FontWeight="Bold"
+                                   FontSize="14" FontWeight="Bold"
                                    Foreground="{DynamicResource AccentBrush}"
                                    Margin="0,0,0,10"/>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="380">
-                            <ItemsControl x:Name="OdinRowsList" ItemTemplate="{StaticResource OdinRowTemplate}"/>
+                            <ItemsControl x:Name="OdinRowsList"
+                                          ItemTemplate="{StaticResource OdinRowTemplate}"/>
                         </ScrollViewer>
                         <Button Style="{StaticResource ActionButton}"
                                 Background="{DynamicResource AccentSoftBrush}"
                                 BorderBrush="{DynamicResource AccentBrush}"
                                 Foreground="#EAF4FF"
                                 Content="🟡 FLASH WITH EKOFLASH"
-                                Padding="16,9"
-                                FontSize="14"
+                                Padding="16,9" FontSize="14"
                                 Margin="0,10,0,0"
                                 HorizontalAlignment="Stretch"
                                 Click="FlashAll_Click"/>
                     </StackPanel>
 
+                    <!-- SIDELOAD PANEL -->
                     <StackPanel x:Name="PanelSideload" Visibility="Collapsed">
                         <TextBlock Text="🟢 ADB SIDELOAD"
-                                   FontSize="14"
-                                   FontWeight="Bold"
+                                   FontSize="14" FontWeight="Bold"
                                    Foreground="{DynamicResource AccentBrush}"
                                    Margin="0,0,0,10"/>
                         <Border Style="{StaticResource GlassPanel}" Margin="0,0,0,10">
@@ -408,20 +393,18 @@
                                            Text="ZIP FILE"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource AccentBrush}"
-                                           VerticalAlignment="Center"
-                                           FontSize="13"/>
-                                <TextBox Grid.Column="1"
-                                         x:Name="SideloadPathBox"
-                                         Style="{StaticResource PathBox}"
-                                         IsReadOnly="True"
-                                         Margin="6,0"/>
-                                <Button Grid.Column="2"
-                                        Style="{StaticResource BrowseBtn}"
-                                        Content="📂"
-                                        Tag="sideload"
-                                        Height="28"
-                                        Width="60"
-                                        Click="Browse_Click"/>
+                                           VerticalAlignment="Center" FontSize="13"/>
+                                <TextBox   Grid.Column="1"
+                                           x:Name="SideloadPathBox"
+                                           Style="{StaticResource PathBox}"
+                                           IsReadOnly="True"
+                                           Margin="6,0"/>
+                                <Button    Grid.Column="2"
+                                           Style="{StaticResource BrowseBtn}"
+                                           Content="📂"
+                                           Tag="sideload"
+                                           Height="28" Width="60"
+                                           Click="Browse_Click"/>
                             </Grid>
                         </Border>
                         <Button Style="{StaticResource ActionButton}"
@@ -429,16 +412,15 @@
                                 BorderBrush="{DynamicResource AccentBrush}"
                                 Foreground="#EAF4FF"
                                 Content="🟢 START SIDELOAD"
-                                Padding="16,9"
-                                FontSize="14"
+                                Padding="16,9" FontSize="14"
                                 HorizontalAlignment="Stretch"
                                 Click="FlashAll_Click"/>
                     </StackPanel>
 
+                    <!-- TOOLS PANEL -->
                     <StackPanel x:Name="PanelTools" Visibility="Collapsed">
                         <TextBlock Text="🔧 TOOLS &amp; CUSTOM COMMANDS"
-                                   FontSize="14"
-                                   FontWeight="Bold"
+                                   FontSize="14" FontWeight="Bold"
                                    Foreground="{DynamicResource AccentBrush}"
                                    Margin="0,0,0,10"/>
 
@@ -446,8 +428,7 @@
                             <StackPanel>
                                 <TextBlock Text="Custom Command:"
                                            Foreground="{DynamicResource TextMutedBrush}"
-                                           FontSize="12"
-                                           Margin="0,0,0,6"/>
+                                           FontSize="12" Margin="0,0,0,6"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -457,14 +438,14 @@
                                              Grid.Column="0"
                                              Style="{StaticResource PathBox}"
                                              Margin="0,0,8,0"/>
-                                    <Button Grid.Column="1"
-                                            Style="{StaticResource ActionButton}"
-                                            Background="{DynamicResource AccentSoftBrush}"
-                                            BorderBrush="{DynamicResource AccentBrush}"
-                                            Foreground="#EAF4FF"
-                                            Content="▶ RUN"
-                                            Padding="12,6"
-                                            Click="RunCmd_Click"/>
+                                    <Button  Grid.Column="1"
+                                             Style="{StaticResource ActionButton}"
+                                             Background="{DynamicResource AccentSoftBrush}"
+                                             BorderBrush="{DynamicResource AccentBrush}"
+                                             Foreground="#EAF4FF"
+                                             Content="▶ RUN"
+                                             Padding="12,6"
+                                             Click="RunCommand_Click"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -472,82 +453,77 @@
                         <Border Style="{StaticResource GlassPanel}">
                             <WrapPanel>
                                 <Button Style="{StaticResource ActionButton}"
-                                        Background="#1A3fb950" BorderBrush="#3fb950"
-                                        Foreground="#3fb950"
+                                        Background="#1A3fb950" BorderBrush="#3fb950" Foreground="#3fb950"
                                         Content="ADB Reboot"
                                         Tag="adb reboot"
                                         Padding="10,5" Margin="0,0,6,6"
-                                        Click="RunCmd_Click"/>
+                                        Click="RunCommand_Click"/>
                                 <Button Style="{StaticResource ActionButton}"
-                                        Background="#1A79c0ff" BorderBrush="#79c0ff"
-                                        Foreground="#79c0ff"
+                                        Background="#1A79c0ff" BorderBrush="#79c0ff" Foreground="#79c0ff"
                                         Content="Reboot Bootloader"
                                         Tag="adb reboot bootloader"
                                         Padding="10,5" Margin="0,0,6,6"
-                                        Click="RunCmd_Click"/>
+                                        Click="RunCommand_Click"/>
                                 <Button Style="{StaticResource ActionButton}"
-                                        Background="#1Affa657" BorderBrush="#ffa657"
-                                        Foreground="#ffa657"
+                                        Background="#1Affa657" BorderBrush="#ffa657" Foreground="#ffa657"
                                         Content="Reboot Recovery"
                                         Tag="adb reboot recovery"
                                         Padding="10,5" Margin="0,0,6,6"
-                                        Click="RunCmd_Click"/>
+                                        Click="RunCommand_Click"/>
                                 <Button Style="{StaticResource ActionButton}"
-                                        Background="#1Af78166" BorderBrush="#f78166"
-                                        Foreground="#f78166"
+                                        Background="#1Af78166" BorderBrush="#f78166" Foreground="#f78166"
                                         Content="Fastboot Reboot"
                                         Tag="fastboot reboot"
                                         Padding="10,5" Margin="0,0,6,6"
-                                        Click="RunCmd_Click"/>
+                                        Click="RunCommand_Click"/>
                                 <Button Style="{StaticResource ActionButton}"
-                                        Background="#1A58a6ff" BorderBrush="#58a6ff"
-                                        Foreground="#58a6ff"
+                                        Background="#1A58a6ff" BorderBrush="#58a6ff" Foreground="#58a6ff"
                                         Content="ADB Devices"
                                         Tag="adb devices"
                                         Padding="10,5" Margin="0,0,6,6"
-                                        Click="RunCmd_Click"/>
+                                        Click="RunCommand_Click"/>
                                 <Button Style="{StaticResource ActionButton}"
-                                        Background="#1A58a6ff" BorderBrush="#58a6ff"
-                                        Foreground="#58a6ff"
+                                        Background="#1A58a6ff" BorderBrush="#58a6ff" Foreground="#58a6ff"
                                         Content="Fastboot Devices"
                                         Tag="fastboot devices"
                                         Padding="10,5" Margin="0,0,0,6"
-                                        Click="RunCmd_Click"/>
+                                        Click="RunCommand_Click"/>
                             </WrapPanel>
                         </Border>
                     </StackPanel>
                 </Grid>
 
+                <!-- OPTIONS TAB -->
                 <Grid x:Name="TabOptionsPanel" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock Text="⚙️ OPTIONS"
-                                   FontSize="14"
-                                   FontWeight="Bold"
+                                   FontSize="14" FontWeight="Bold"
                                    Foreground="{DynamicResource AccentBrush}"
                                    Margin="0,0,0,10"/>
                         <Border Style="{StaticResource GlassPanel}" Margin="0,0,0,8">
                             <StackPanel>
                                 <TextBlock Text="Flash Options"
                                            Foreground="{DynamicResource TextMutedBrush}"
-                                           FontSize="12"
-                                           FontWeight="Bold"
+                                           FontSize="12" FontWeight="Bold"
                                            Margin="0,0,0,10"/>
-                                <CheckBox Content="Skip verification after flash" Foreground="#EAF4FF" Margin="0,0,0,6"/>
-                                <CheckBox Content="Wipe userdata before flashing" Foreground="#EAF4FF" Margin="0,0,0,6"/>
-                                <CheckBox Content="Auto-reboot after flash" Foreground="#EAF4FF" Margin="0,0,0,6"/>
-                                <CheckBox Content="Verbose output" Foreground="#EAF4FF"/>
+                                <CheckBox Content="Skip verification after flash"
+                                          Foreground="#EAF4FF" Margin="0,0,0,6"/>
+                                <CheckBox Content="Wipe userdata before flashing"
+                                          Foreground="#EAF4FF" Margin="0,0,0,6"/>
+                                <CheckBox Content="Auto-reboot after flash"
+                                          Foreground="#EAF4FF" Margin="0,0,0,6"/>
+                                <CheckBox Content="Verbose output"
+                                          Foreground="#EAF4FF"/>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource GlassPanel}">
                             <StackPanel>
                                 <TextBlock Text="System Info"
                                            Foreground="{DynamicResource TextMutedBrush}"
-                                           FontSize="12"
-                                           FontWeight="Bold"
+                                           FontSize="12" FontWeight="Bold"
                                            Margin="0,0,0,10"/>
                                 <TextBlock Text="ADB / Fastboot / ekoflash status will be shown in the log on startup."
-                                           Foreground="#9CC7E8"
-                                           FontSize="11"
+                                           Foreground="#9CC7E8" FontSize="11"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
@@ -555,6 +531,7 @@
                 </Grid>
             </Grid>
 
+            <!-- RIGHT : Command preview -->
             <Border Grid.Column="1"
                     Style="{StaticResource GlassPanel}"
                     Margin="8,12,16,12">
@@ -565,27 +542,27 @@
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0"
                                Text="📋 COMMAND PREVIEW"
-                               FontSize="12"
-                               FontWeight="Bold"
+                               FontSize="12" FontWeight="Bold"
                                Foreground="{DynamicResource AccentBrush}"
                                Margin="0,0,0,8"/>
-                    <TextBox Grid.Row="1"
-                             x:Name="CommandPreviewBox"
-                             Background="#0A1020"
-                             Foreground="#7ee787"
-                             BorderThickness="1"
-                             BorderBrush="{DynamicResource BorderBrush}"
-                             FontFamily="Consolas"
-                             FontSize="12"
-                             IsReadOnly="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             AcceptsReturn="True"
-                             Padding="10"/>
+                    <TextBox   Grid.Row="1"
+                               x:Name="CommandPreviewBox"
+                               Background="#0A1020"
+                               Foreground="#7ee787"
+                               BorderThickness="1"
+                               BorderBrush="{DynamicResource BorderBrush}"
+                               FontFamily="Consolas"
+                               FontSize="12"
+                               IsReadOnly="True"
+                               TextWrapping="Wrap"
+                               VerticalScrollBarVisibility="Auto"
+                               AcceptsReturn="True"
+                               Padding="10"/>
                 </Grid>
             </Border>
         </Grid>
 
+        <!-- ═══ ROW 3 : PROGRESS ═══ -->
         <Border Grid.Row="3"
                 Background="#0A1020"
                 BorderBrush="{DynamicResource BorderBrush}"
@@ -598,22 +575,21 @@
                 </Grid.ColumnDefinitions>
                 <ProgressBar x:Name="MainProgress"
                              Grid.Column="0"
-                             Minimum="0"
-                             Maximum="100"
-                             Value="0"
+                             Minimum="0" Maximum="100" Value="0"
                              Height="16"
                              Foreground="{DynamicResource AccentBrush}"
                              Background="#1A2A3A"/>
-                <TextBlock x:Name="ProgressStatusText"
-                           Grid.Column="1"
-                           Text="Ready."
-                           Foreground="{DynamicResource TextMutedBrush}"
-                           FontSize="12"
-                           VerticalAlignment="Center"
-                           Margin="14,0,0,0"/>
+                <TextBlock   x:Name="ProgressStatusText"
+                             Grid.Column="1"
+                             Text="Ready."
+                             Foreground="{DynamicResource TextMutedBrush}"
+                             FontSize="12"
+                             VerticalAlignment="Center"
+                             Margin="14,0,0,0"/>
             </Grid>
         </Border>
 
+        <!-- ═══ ROW 4 : LOG ═══ -->
         <Border Grid.Row="4"
                 Background="#060E1A"
                 BorderBrush="{DynamicResource BorderBrush}"
@@ -624,18 +600,15 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-
                 <Border Grid.Row="0"
                         Background="#0A1525"
                         BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="0,0,0,1"
                         Padding="14,5">
                     <TextBlock Text="📟 LOG OUTPUT"
-                               FontSize="11"
-                               FontWeight="Bold"
+                               FontSize="11" FontWeight="Bold"
                                Foreground="{DynamicResource AccentBrush}"/>
                 </Border>
-
                 <TextBox x:Name="LogBox"
                          Grid.Row="1"
                          Background="Transparent"
@@ -651,5 +624,6 @@
                          Padding="14,8"/>
             </Grid>
         </Border>
+
     </Grid>
 </Window>
