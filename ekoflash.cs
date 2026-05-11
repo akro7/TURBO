@@ -49,6 +49,7 @@ namespace MKVenomTool
 
         private CancellationTokenSource? _backupCts;
         private string _backupTab = "backup";
+        private bool _materialDesignEnabled = false;
 
         public MainWindow()
         {
@@ -128,6 +129,50 @@ namespace MKVenomTool
             Resources["PanelBrush"] = new SolidColorBrush(c.Pa);
 
             SetModeButtonVisual();
+        }
+
+        private void ApplyMaterialDesignTheme()
+        {
+            // ✨ Material Design Theme - Flat, Modern, Clean
+            var mtBg = Color.FromRgb(0xF5, 0xF5, 0xF5);
+            var mtAccent = Color.FromRgb(0x2F, 0x84, 0xFF);
+            var mtText = Color.FromRgb(0x21, 0x21, 0x21);
+            var mtPanel = Color.FromRgb(0xFF, 0xFF, 0xFF);
+
+            Resources["MainBgBrush"] = new SolidColorBrush(mtBg);
+            Resources["AccentBrush"] = new SolidColorBrush(mtAccent);
+            Resources["AccentSoftBrush"] = new SolidColorBrush(Color.FromArgb(0x44, 0x2F, 0x84, 0xFF));
+            Resources["BorderBrush"] = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0));
+            Resources["PanelBrush"] = new SolidColorBrush(mtPanel);
+            Resources["FgBright"] = new SolidColorBrush(mtText);
+            Resources["TextMutedBrush"] = new SolidColorBrush(Color.FromRgb(0x75, 0x75, 0x75));
+
+            // تحديث الخلفيات والألوان
+            Background = new SolidColorBrush(mtBg);
+            Foreground = new SolidColorBrush(mtText);
+
+            AppendLog("[DESIGN] Material Design Theme Applied ✨");
+            SetModeButtonVisual();
+        }
+
+        private void ApplyNeonTheme()
+        {
+            // استعادة الثيم النيون الأصلي
+            ApplyTheme("Blue");
+            AppendLog("[DESIGN] Neon Theme Restored 🌌");
+        }
+
+        private void MaterialDesign_Changed(object sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox chk)
+            {
+                _materialDesignEnabled = chk.IsChecked == true;
+
+                if (_materialDesignEnabled)
+                    ApplyMaterialDesignTheme();
+                else
+                    ApplyNeonTheme();
+            }
         }
 
         private void ShowTab(string tab)
