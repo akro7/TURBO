@@ -399,7 +399,7 @@
                             <Border Style="{StaticResource GlassPanel}" Height="200" Margin="0,0,0,12">
                                 <Grid>
                                     <TextBlock Text="COMMAND PREVIEW" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,5" VerticalAlignment="Top"/>
-                                    <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True" Background="#08101E" BorderThickness="0" Foreground="#00FF95" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                    <TextBox x:Name="CommandPreviewBox" Margin="0,25,0,0" IsReadOnly="True" Background="#08101E" BorderThickness="0" Foreground="#00FF95" FontFamily="Consolas" FontSize="10"/>
                                 </Grid>
                             </Border>
 
@@ -419,7 +419,12 @@
                                     <TextBlock Text="FLASH OPTIONS" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,10"/>
                                     <CheckBox Content="Skip verification" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
                                     <CheckBox Content="Wipe userdata after flash" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
-                                    <CheckBox Content="Reboot after flash" Foreground="{StaticResource TextMutedBrush}" IsChecked="True"/>
+                                    <CheckBox Content="Reboot after flash" Foreground="{StaticResource TextMutedBrush}" IsChecked="True" Margin="0,0,0,12"/>
+
+                                    <Separator Background="{StaticResource BorderNormal}" Margin="0,5,0,10"/>
+
+                                    <TextBlock Text="UI DESIGN" FontSize="12" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="ChkMaterialDesign" Content="Enable Material Design Theme" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" Click="MaterialDesign_Changed"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -446,7 +451,7 @@
                 <Border Grid.Row="4" Margin="5,0,5,5" Background="#03070F" CornerRadius="10" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
                     <Grid>
                         <TextBlock Text="TURBO TERMINAL OUTPUT" Foreground="#3352BFFF" FontSize="10" FontWeight="Bold" Margin="10,5" VerticalAlignment="Top" HorizontalAlignment="Right"/>
-                        <TextBox x:Name="LogBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" Background="Transparent" Foreground="#D7F1FF" BorderThickness="0" FontFamily="Consolas" FontSize="12" Padding="12" AcceptsReturn="True"/>
+                        <TextBox x:Name="LogBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" Background="Transparent" Foreground="#D7F1FF" BorderThickness="0" FontFamily="Consolas" FontSize="10"/>
                     </Grid>
                 </Border>
 
